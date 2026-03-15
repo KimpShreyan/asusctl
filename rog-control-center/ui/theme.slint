@@ -1,0 +1,69 @@
+// ROG Premium Gaming Theme — replaces raw Palette usage
+// Dark carbon/steel aesthetic with glowing RGB accents
+
+export global ROGTheme {
+    // ── Background ──
+    out property <color> bg-primary: #0d0d0d;
+    out property <color> bg-secondary: #1a1a1a;
+    out property <color> bg-surface: rgba(30, 30, 30, 0.85);
+    out property <color> bg-surface-hover: rgba(40, 40, 40, 0.9);
+    out property <color> bg-elevated: #222222;
+
+    // ── Accent (ROG Red default, user-configurable) ──
+    in-out property <color> accent: #FF0032;
+    out property <color> accent-dim: rgba(255, 0, 50, 0.3);
+    out property <color> accent-glow: rgba(255, 0, 50, 0.15);
+    out property <color> accent-hover: #FF1A4A;
+
+    // ── Text ──
+    out property <color> text-primary: #FFFFFF;
+    out property <color> text-secondary: #B0B0B0;
+    out property <color> text-accent: self.accent;
+    out property <color> text-disabled: #555555;
+
+    // ── Borders ──
+    out property <color> border-default: rgba(255, 255, 255, 0.08);
+    out property <color> border-glow: self.accent-dim;
+    out property <color> border-active: self.accent;
+
+    // ── Glow / Shadow ──
+    out property <length> glow-blur: 12px;
+    out property <length> glow-blur-strong: 20px;
+
+    // ── Spacing ──
+    out property <length> spacing-xs: 4px;
+    out property <length> spacing-sm: 8px;
+    out property <length> spacing-md: 12px;
+    out property <length> spacing-lg: 16px;
+    out property <length> spacing-xl: 24px;
+
+    // ── Border radius ──
+    out property <length> radius-sm: 6px;
+    out property <length> radius-md: 8px;
+    out property <length> radius-lg: 12px;
+
+    // ── Font sizes ──
+    out property <length> font-body: 14px;
+    out property <length> font-label: 13px;
+    out property <length> font-heading: 18px;
+    out property <length> font-title: 22px;
+
+    // ── Font weights ──
+    out property <int> weight-regular: 400;
+    out property <int> weight-medium: 500;
+    out property <int> weight-bold: 700;
+
+    // ── Animation durations ──
+    out property <duration> anim-fast: 150ms;
+    out property <duration> anim-normal: 200ms;
+    out property <duration> anim-slow: 300ms;
+
+    // ── Component sizes ──
+    out property <length> sidebar-width: 200px;
+    out property <length> slider-track-height: 4px;
+    out property <length> slider-thumb-size: 16px;
+    out property <length> toggle-width: 44px;
+    out property <length> toggle-height: 24px;
+    out property <length> card-min-height: 48px;
+    out property <length> button-height: 36px;
+}
