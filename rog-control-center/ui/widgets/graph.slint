@@ -1,109 +1,101 @@
-import { Palette } from "std-widgets.slint";
+// Premium ROG fan curve graph — dark grid with glowing curve and accent nodes
 
-export struct Node { x: length, y: length}
+import { ROGTheme } from "../theme.slint";
+
+export struct Node { x: length, y: length }
 
 export component Graph inherits Rectangle {
     in-out property <[Node]> nodes;
     in property <Node> node_min: { x: 0px, y: 0px };
     in property <Node> node_max: { x: 100px, y: 255px };
     property <length> graph_padding: 40px;
-    property <length> axis_font_size: 14px;
-    // Text {
-    //     x: 0;
-    //     text: "Fan PWM";
-    // }
+    property <length> axis_font_size: 12px;
 
-    // Text {
-    //     x: root.width / 2;
-    //     y: root.height - self.height;
-    //     text: "Temperature";
-    // }
+    background: ROGTheme.bg-primary;
+    border-radius: ROGTheme.radius-lg;
+    border-color: ROGTheme.border-default;
+    border-width: 1px;
 
     graph := Rectangle {
         width: root.width - root.graph_padding * 2;
         height: root.height - root.graph_padding * 2;
         x: root.graph_padding;
         y: root.graph_padding;
+
         function scale_x_to_graph(x: length) -> length {
             ((x - node_min.x) / (node_max.x - node_min.x)) * graph.width
         }
-        //
         function scale_y_to_graph(y: length) -> length {
             ((y - node_min.y) / (node_max.y - node_min.y)) * graph.height
         }
-        //
         function scale_x_to_node(x: length) -> length {
             (x / graph.width) * (node_max.x - node_min.x)
         }
-        //
         function scale_y_to_node(y: length) -> length {
             (y / graph.height) * (node_max.y - node_min.y)
         }
-        //
 
+        // Vertical grid lines — accent-tinted
         for n in 11: Path {
             viewbox-width: self.width / 1px;
             viewbox-height: self.height / 1px;
-            stroke: Palette.alternate-foreground.darker(200%);
+            stroke: ROGTheme.accent-glow;
             stroke-width: 1px;
             MoveTo {
                 x: scale_x_to_graph(n * 10px) / 1px;
                 y: 0;
-                // scale_y_to_graph(n*1px) / 1px;
             }
-
             LineTo {
                 x: scale_x_to_graph(n * 10px) / 1px;
                 y: graph.height / 1px;
-                //scale_y_to_graph(n*1px) / 1px;
             }
         }
 
+        // X-axis labels (temperature)
         for n in 11: Text {
-            color: Palette.accent-background;
+            color: ROGTheme.text-secondary;
             font-size <=> root.axis_font_size;
             text: "\{n * 10}c";
             x: scale_x_to_graph(n * 10px) - self.width / 3;
             y: graph.height + 2px;
         }
 
+        // Horizontal grid lines — accent-tinted
         for n in 11: Path {
             viewbox-width: self.width / 1px;
             viewbox-height: self.height / 1px;
-            stroke: Palette.alternate-foreground.darker(200%);
+            stroke: ROGTheme.accent-glow;
             stroke-width: 1px;
             MoveTo {
                 x: 0;
-                //scale_x_to_graph(n*10px) / 1px;
                 y: scale_y_to_graph(n * 25.5px) / 1px;
             }
-
             LineTo {
                 x: graph.width / 1px;
-                //scale_x_to_graph(n*10px) / 1px;
                 y: scale_y_to_graph(n * 25.5px) / 1px;
             }
         }
 
+        // Y-axis labels (fan %)
         for n in 11: Text {
-            color: Palette.accent-background;
+            color: ROGTheme.text-secondary;
             font-size <=> root.axis_font_size;
             text: "\{n * 10}%";
-            x: - self.width;
+            x: -self.width;
             y: graph.height - scale_y_to_graph(n * 25.5px) - self.height / 2;
         }
 
+        // Curve line segments — 3px with accent glow
         for l[idx] in nodes: path := Rectangle {
             if idx + 1 != nodes.length: Path {
                 viewbox-width: self.width / 1px;
                 viewbox-height: self.height / 1px;
-                stroke: Palette.control-foreground;
-                stroke-width: 2px;
+                stroke: ROGTheme.accent;
+                stroke-width: 3px;
                 MoveTo {
                     x: scale_x_to_graph(nodes[idx].x) / 1px;
                     y: graph.height / 1px - scale_y_to_graph(nodes[idx].y) / 1px;
                 }
-
                 LineTo {
                     x: scale_x_to_graph(nodes[idx + 1].x) / 1px;
                     y: graph.height / 1px - scale_y_to_graph(nodes[idx + 1].y) / 1px;
@@ -111,28 +103,39 @@ export component Graph inherits Rectangle {
             }
         }
 
+        // Draggable nodes — 14px circles with pulsing glow on hover
         for n[idx] in nodes: Rectangle {
             states [
                 pressed when touch.pressed: {
-                    point.background: Palette.selection-background;
-                    tip.background: Palette.selection-background;
+                    point.background: ROGTheme.accent;
+                    point.drop-shadow-blur: ROGTheme.glow-blur-strong;
+                    point.drop-shadow-color: ROGTheme.accent-dim;
                     tip.opacity: 1.0;
                 }
                 hover when touch.has-hover: {
-                    point.background: Palette.accent-background;
-                    tip.background: Palette.accent-background;
+                    point.background: ROGTheme.accent-hover;
+                    point.drop-shadow-blur: ROGTheme.glow-blur;
+                    point.drop-shadow-color: ROGTheme.accent-dim;
                     tip.opacity: 1.0;
                 }
             ]
-            //
+
             point := Rectangle {
-                background: Palette.control-foreground;
+                background: ROGTheme.text-primary;
                 x: scale_x_to_graph(n.x) - self.width / 2;
                 y: graph.height - scale_y_to_graph(n.y) - self.height / 2;
-                width: 18px;
+                width: 14px;
                 height: self.width;
                 border-radius: self.width / 2;
+                border-color: ROGTheme.accent;
+                border-width: 2px;
+                drop-shadow-blur: 4px;
+                drop-shadow-color: rgba(0, 0, 0, 0.4);
                 property <length> pad: 1px;
+
+                animate background { duration: ROGTheme.anim-fast; }
+                animate drop-shadow-blur { duration: ROGTheme.anim-normal; }
+                animate drop-shadow-color { duration: ROGTheme.anim-normal; }
 
                 touch := TouchArea {
                     function check() {
@@ -171,16 +174,13 @@ export component Graph inherits Rectangle {
                             }
                         }
                     }
-                    //
                     moved => {
                         if (self.pressed) {
                             n.x += scale_x_to_node(self.mouse-x - self.pressed-x);
                             n.y -= scale_y_to_node(self.mouse-y - self.pressed-y);
                             self.check();
-                            // nodes[idx] = n;
                         }
                     }
-
                     clicked => {
                         self.check();
                     }
@@ -189,43 +189,40 @@ export component Graph inherits Rectangle {
             }
 
             tip := Rectangle {
-                background: Palette.control-foreground;
-                opacity: 0.3;
+                background: ROGTheme.bg-elevated;
+                border-radius: ROGTheme.radius-sm;
+                border-color: ROGTheme.accent-dim;
+                border-width: 1px;
+                opacity: 0.0;
                 x: final_x_pos();
                 y: final_y_pos();
-                width: label.preferred-width;
-                height: label.preferred-height;
+                width: label.preferred-width + 8px;
+                height: label.preferred-height + 4px;
+
+                animate opacity { duration: ROGTheme.anim-fast; }
+
                 function x_pos() -> length {
-                    scale_x_to_graph(n.x) - label.preferred-width - 8px
+                    scale_x_to_graph(n.x) - label.preferred-width - 12px
                 }
-                //
                 function final_x_pos() -> length {
-                    if x_pos() > 0 {
-                        x_pos()
-                    } else {
-                        x_pos() + label.preferred-width
-                    }
+                    if x_pos() > 0 { x_pos() } else { x_pos() + label.preferred-width + 16px }
                 }
-                //
                 function y_pos() -> length {
-                    graph.height - scale_y_to_graph(n.y) - self.height - 4px
+                    graph.height - scale_y_to_graph(n.y) - self.height - 6px
                 }
-                //
                 function final_y_pos() -> length {
-                    if y_pos() > 0 {
-                        y_pos()
-                    } else {
-                        y_pos() + label.preferred-height
-                    }
+                    if y_pos() > 0 { y_pos() } else { y_pos() + label.preferred-height + 8px }
                 }
-                //
                 function fan_pct() -> int {
                     Math.floor(n.y / 1px) / 255 * 100
                 }
-                //
+
                 label := Text {
-                    color: Palette.accent-foreground;
-                    font-size: 16px;
+                    x: 4px;
+                    y: 2px;
+                    color: ROGTheme.text-primary;
+                    font-size: ROGTheme.font-label;
+                    font-weight: ROGTheme.weight-medium;
                     text: "\{Math.floor(n.x / 1px)}c, \{fan_pct()}%";
                 }
             }
