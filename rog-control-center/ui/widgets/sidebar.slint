@@ -1,49 +1,85 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: MIT
+// Premium ROG sidebar — dark gaming aesthetic with glow accents
 
-import { Palette, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 
 component SideBarItem inherits Rectangle {
-    padding: 10px;
     in property <bool> selected;
     in property <bool> has-focus;
     in-out property <string> text <=> label.text;
     callback clicked <=> touch.clicked;
-    min-height: self.visible ? l.preferred-height + 10px : 0px;
-    // min-width: self.visible ? l.preferred-width + 10px : 0px;
+    min-height: self.visible ? 42px : 0px;
+
+    background: transparent;
+
     states [
         pressed when touch.pressed: {
-            state.opacity: 0.8;
+            item-bg.opacity: 0.9;
+            item-bg.background: ROGTheme.bg-surface-hover;
         }
         hover when touch.has-hover: {
-            state.opacity: 0.6;
+            item-bg.opacity: 0.7;
+            item-bg.background: ROGTheme.bg-surface-hover;
+            hover-underline.width: label.preferred-width;
         }
         selected when root.selected: {
-            state.opacity: 1;
+            item-bg.opacity: 1;
+            item-bg.background: ROGTheme.bg-surface;
+            left-glow.opacity: 1;
+            label.color: ROGTheme.text-primary;
+            label.font-weight: ROGTheme.weight-medium;
         }
         focused when root.has-focus: {
-            state.opacity: 0.8;
+            item-bg.opacity: 0.8;
+            item-bg.background: ROGTheme.bg-surface-hover;
         }
     ]
-    state := Rectangle {
+
+    // Active left edge glow indicator
+    left-glow := Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: parent.height - 8px;
+        border-radius: 2px;
+        background: ROGTheme.accent;
         opacity: 0;
-        border-width: 2px;
-        border-radius: 10px;
-        border-color: Palette.accent-background;
-        background: Palette.alternate-background;
-        animate opacity { duration: 150ms; }
-        animate border-width { duration: 150ms; }
-        height: l.preferred-height;
+        drop-shadow-blur: ROGTheme.glow-blur;
+        drop-shadow-color: ROGTheme.accent-dim;
+        animate opacity { duration: ROGTheme.anim-normal; }
     }
 
-    l := HorizontalBox {
-        y: (parent.height - self.height) / 2;
-        spacing: 0px;
+    item-bg := Rectangle {
+        opacity: 0;
+        border-radius: ROGTheme.radius-md;
+        background: transparent;
+        animate opacity { duration: ROGTheme.anim-fast; }
+        animate background { duration: ROGTheme.anim-fast; }
+    }
+
+    HorizontalBox {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: ROGTheme.spacing-sm;
+
         label := Text {
-            color: Palette.foreground;
+            color: ROGTheme.text-secondary;
             vertical-alignment: center;
-            font-size: 14px;
+            font-size: ROGTheme.font-body;
+            font-weight: ROGTheme.weight-regular;
+            animate color { duration: ROGTheme.anim-normal; }
         }
+    }
+
+    // Hover underline accent
+    hover-underline := Rectangle {
+        x: 16px;
+        y: parent.height - 2px;
+        width: 0px;
+        height: 2px;
+        background: ROGTheme.accent;
+        border-radius: 1px;
+        animate width { duration: ROGTheme.anim-normal; easing: ease-out; }
     }
 
     touch := TouchArea {
@@ -59,16 +95,24 @@ export component SideBar inherits Rectangle {
     out property <int> current-item: 0;
     out property <int> current-focused: fs.has-focus ? fs.focused-tab : -1;
 
-    // The currently focused tab
-    width: 160px;
+    width: ROGTheme.sidebar-width;
     forward-focus: fs;
     accessible-role: tab;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+
+    // Dark sidebar background with subtle border
     Rectangle {
-        border-width: 2px;
-        border-color: Palette.accent-background;
         border-radius: 0px;
-        background: Palette.background.darker(0.2);
+        background: ROGTheme.bg-primary;
+
+        // Right edge accent border
+        Rectangle {
+            x: parent.width - 1px;
+            width: 1px;
+            height: parent.height;
+            background: ROGTheme.border-default;
+        }
+
         fs := FocusScope {
             key-pressed(event) => {
                 if (event.text == "\n") {
@@ -76,7 +120,7 @@ export component SideBar inherits Rectangle {
                     return accept;
                 }
                 if (event.text == Key.UpArrow) {
-                    self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                    self.focused-tab = Math.max(self.focused-tab - 1, 0);
                     return accept;
                 }
                 if (event.text == Key.DownArrow) {
@@ -95,22 +139,48 @@ export component SideBar inherits Rectangle {
             property <int> focused-tab: 0;
             x: 0;
             width: 0;
-            // Do not react on clicks
         }
     }
 
     VerticalBox {
-        spacing: 4px;
+        spacing: ROGTheme.spacing-xs;
         alignment: start;
-        label := Text {
-            font-size: 16px;
-            horizontal-alignment: center;
+        padding: 0px;
+        padding-top: ROGTheme.spacing-lg;
+
+        // ROG Logo / Title area with glow
+        Rectangle {
+            height: 48px;
+            HorizontalBox {
+                padding-left: ROGTheme.spacing-lg;
+                label := Text {
+                    font-size: ROGTheme.font-title;
+                    font-weight: ROGTheme.weight-bold;
+                    color: ROGTheme.text-primary;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    // TODO: replace with ROG logo image asset
+                }
+            }
+            // Subtle accent glow under title
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                background: ROGTheme.accent-glow;
+            }
         }
 
+        // Spacer
+        Rectangle { height: ROGTheme.spacing-md; }
+
+        // Navigation items
         navigation := VerticalLayout {
-            spacing: -6px;
+            spacing: 2px;
             alignment: start;
             vertical-stretch: 0;
+            padding-left: ROGTheme.spacing-sm;
+            padding-right: ROGTheme.spacing-sm;
+
             for item[index] in root.model: SideBarItem {
                 visible: root.available[index];
                 clicked => {
@@ -122,6 +192,7 @@ export component SideBar inherits Rectangle {
             }
         }
 
+        // Push quit button to bottom
         VerticalLayout {
             bottom := VerticalBox {
                 padding-left: 0px;
