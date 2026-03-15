@@ -1,4 +1,5 @@
-import { Palette, Button, VerticalBox } from "std-widgets.slint";
+import { Button, VerticalBox } from "std-widgets.slint";
+import { ROGTheme } from "theme.slint";
 import { AppSize } from "globals.slint";
 import { PageSystem, SystemPageData, AttrMinMax } from "pages/system.slint";
 import { SideBar } from "widgets/sidebar.slint";
@@ -18,11 +19,10 @@ import { PageAppSettings, AppSettingsPageData } from "pages/app_settings.slint";
 export { AppSize, AttrMinMax, SystemPageData, AnimePageData, AppSettingsPageData }
 
 export component MainWindow inherits Window {
-    title: "ROG Control";
-    always-on-top: true;
+    title: "ROG Control Center";
     default-font-family: "Noto Sans";
-    default-font-size: 14px;
-    default-font-weight: 400;
+    default-font-size: ROGTheme.font-body;
+    default-font-weight: ROGTheme.weight-regular;
     icon: @image-url("../data/rog-control-center.png");
     in property <[bool]> sidebar_items_avilable: [true, true, true, true, true, true];
     private property <bool> show_notif;
@@ -47,7 +47,8 @@ export component MainWindow inherits Window {
     }
     min-height: AppSize.height;
     min-width: AppSize.width;
-    background: Colors.black;
+    background: ROGTheme.bg-primary;
+
     HorizontalLayout {
         padding: 0px;
         VerticalLayout {
@@ -64,13 +65,18 @@ export component MainWindow inherits Window {
                 available: root.sidebar_items_avilable;
             }
 
+            // Quit button — styled with ROGTheme
             Rectangle {
                 max-height: 40px;
                 width: side-bar.width;
-                background: Palette.control-background;
+                background: ROGTheme.bg-surface;
+                border-color: ROGTheme.border-default;
+
                 Text {
                     vertical-alignment: center;
                     horizontal-alignment: center;
+                    color: ROGTheme.text-secondary;
+                    font-weight: ROGTheme.weight-medium;
                     text: @tr("Quit App");
                 }
 
@@ -82,8 +88,9 @@ export component MainWindow inherits Window {
             }
         }
 
+        // Content area
         Rectangle {
-            background: Palette.background;
+            background: ROGTheme.bg-secondary;
             if(side-bar.current-item == 0): page := PageSystem {
                 width: root.width - side-bar.width;
                 height: root.height + 12px;
@@ -113,18 +120,17 @@ export component MainWindow inherits Window {
         }
     }
 
+    // Fade cover overlay
     if fade_cover: Rectangle {
         x: 0px;
         y: 0px;
         width: root.width;
         height: root.height;
-        background: Colors.rgba(25,33,23,20);
-        opacity: 0.7;
+        background: rgba(0, 0, 0, 0.7);
         TouchArea {
             height: 100%;
             width: 100%;
             clicked => {
-                // toolbar-dropdown.close();
                 if (show_notif) {
                     show_notif = false;
                 }
@@ -133,13 +139,12 @@ export component MainWindow inherits Window {
         }
     }
 
+    // Toast notification bar
     if toast: Rectangle {
         x: 0px;
         y: 0px;
         width: root.width;
         height: 32px;
-        opacity: 1.0;
-        background: Colors.grey;
         TouchArea {
             height: 100%;
             width: 100%;
@@ -151,15 +156,19 @@ export component MainWindow inherits Window {
         Rectangle {
             height: 100%;
             width: 100%;
-            background: Palette.control-background;
+            background: ROGTheme.bg-elevated;
+            border-color: ROGTheme.border-glow;
+            border-width: 1px;
             Text {
-                color: Palette.control-foreground;
+                color: ROGTheme.text-primary;
                 text: root.toast_text;
+                vertical-alignment: center;
+                horizontal-alignment: center;
             }
         }
     }
 
-    // // TODO: or use Dialogue
+    // Notification overlay
     if show_notif: Rectangle {
         x: root.width / 8;
         y: root.height / 8;
@@ -174,28 +183,32 @@ export component MainWindow inherits Window {
             }
         }
 
-        // TODO: add properties to display
         Rectangle {
             height: 100%;
             width: 100%;
-            background: Palette.background;
+            background: ROGTheme.bg-primary;
+            border-radius: ROGTheme.radius-lg;
             Text {
+                color: ROGTheme.text-primary;
                 text: "Click here to exit";
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
         }
     }
 
+    // Error overlay
     if SomeError.error_message != "": Rectangle {
         x: 0px;
         y: 0px;
         width: root.width;
         height: root.height;
-        padding: 10px;
+        padding: ROGTheme.spacing-md;
 
-        background: Palette.background;
-        border-color: Palette.border;
-        border-width: 3px;
-        border-radius: 10px;
+        background: ROGTheme.bg-primary;
+        border-color: ROGTheme.accent;
+        border-width: 2px;
+        border-radius: ROGTheme.radius-lg;
 
         VerticalBox {
             RogItem {
@@ -203,12 +216,15 @@ export component MainWindow inherits Window {
                 max-height: 100px;
                 Text {
                     text <=> SomeError.error_message;
-                    font-size: 18px;
+                    font-size: ROGTheme.font-heading;
+                    font-weight: ROGTheme.weight-bold;
+                    color: ROGTheme.accent;
                 }
             }
 
             Text {
                 text <=> SomeError.error_help;
+                color: ROGTheme.text-secondary;
                 horizontal-alignment: TextHorizontalAlignment.center;
                 vertical-alignment: TextVerticalAlignment.center;
             }
