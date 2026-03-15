@@ -1,0 +1,18 @@
+[package]
+name = "rog-hotkeys"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ASUS ROG Fn key and hotkey daemon"
+
+[dependencies]
+evdev = { workspace = true }
+uinput = { workspace = true }
+udev = { workspace = true }
+tokio = { workspace = true }
+zbus = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+log = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "rog-noise-cancel"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AI noise cancellation via PipeWire + RNNoise for ASUS ROG laptops"
+
+[features]
+pipewire-backend = ["dep:pipewire"]
+
+[dependencies]
+pipewire = { workspace = true, optional = true }
+# rnnoise-c omitted due to clang-sys conflict with sg crate
+# TODO: switch to nnnoiseless (pure Rust RNNoise port)
+tokio = { workspace = true }
+zbus = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+log = { workspace = true }

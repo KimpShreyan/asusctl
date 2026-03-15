@@ -26,6 +26,9 @@ members = [
   "rog-slash",
   "simulators",
   "rog-scsi",
+  "rog-hotkeys",
+  "rog-noise-cancel",
+  "rog-scenarios",
 ]
 
 default-members = ["asusctl", "asusd", "asusd-user", "rog-control-center"]
@@ -69,6 +72,13 @@ versions = "6.2"
 notify-rust = { version = "4.11.5", features = ["z", "async"] }
 
 sg = { git = "https://github.com/flukejones/sg-rs.git" }
+
+evdev = "0.12"
+uinput = "0.1"
+pipewire = "0.8"
+# rnnoise-c omitted: clang-sys version conflict with sg crate's bindgen
+# TODO: use nnnoiseless (pure Rust RNNoise) or updated rnnoise-c
+procfs = "0.16"
 
 [profile.release]
 # thin = 57s, asusd = 9.0M

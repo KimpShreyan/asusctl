@@ -1,0 +1,16 @@
+[package]
+name = "rog-scenarios"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "App-aware automatic profile switching for ASUS ROG laptops"
+
+[dependencies]
+procfs = { workspace = true }
+tokio = { workspace = true }
+zbus = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+log = { workspace = true }
