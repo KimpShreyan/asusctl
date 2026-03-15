@@ -1,7 +1,10 @@
-import { Palette, Slider, HorizontalBox, Button, LineEdit } from "std-widgets.slint";
+// Premium ROG colour picker — hue/saturation/value sliders with live glow preview
+
+import { Slider, HorizontalBox, LineEdit } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 
 export component ColourSlider inherits VerticalLayout {
-    spacing: 10px;
+    spacing: ROGTheme.spacing-sm;
     in-out property <bool> enabled;
     property <string> hex: "#FF0000";
     in-out property <float> c1value <=> c1.value;
@@ -11,47 +14,19 @@ export component ColourSlider inherits VerticalLayout {
     in-out property <color> final_colour: Colors.red;
     in-out property <brush> colourbox: final_colour;
     callback hex_to_colour(string) -> color;
-    // required
     callback set_hex_from_colour(color) -> string;
     callback released();
 
     property <[color]> base_colours: [
-        hsv(0, 1, 1),
-        hsv(10, 1, 1),
-        hsv(20, 1, 1),
-        hsv(30, 1, 1),
-        hsv(40, 1, 1),
-        hsv(50, 1, 1),
-        hsv(60, 1, 1),
-        hsv(70, 1, 1),
-        hsv(80, 1, 1),
-        hsv(90, 1, 1),
-        hsv(100, 1, 1),
-        hsv(110, 1, 1),
-        hsv(120, 1, 1),
-        hsv(130, 1, 1),
-        hsv(140, 1, 1),
-        hsv(150, 1, 1),
-        hsv(160, 1, 1),
-        hsv(170, 1, 1),
-        hsv(180, 1, 1),
-        hsv(190, 1, 1),
-        hsv(200, 1, 1),
-        hsv(210, 1, 1),
-        hsv(220, 1, 1),
-        hsv(230, 1, 1),
-        hsv(240, 1, 1),
-        hsv(250, 1, 1),
-        hsv(260, 1, 1),
-        hsv(270, 1, 1),
-        hsv(280, 1, 1),
-        hsv(290, 1, 1),
-        hsv(300, 1, 1),
-        hsv(310, 1, 1),
-        hsv(320, 1, 1),
-        hsv(330, 1, 1),
-        hsv(340, 1, 1),
-        hsv(350, 1, 1),
+        hsv(0, 1, 1), hsv(10, 1, 1), hsv(20, 1, 1), hsv(30, 1, 1),
+        hsv(40, 1, 1), hsv(50, 1, 1), hsv(60, 1, 1), hsv(70, 1, 1),
+        hsv(80, 1, 1), hsv(90, 1, 1), hsv(100, 1, 1), hsv(110, 1, 1),
+        hsv(120, 1, 1), hsv(130, 1, 1), hsv(140, 1, 1), hsv(150, 1, 1),
+        hsv(160, 1, 1), hsv(170, 1, 1), hsv(180, 1, 1), hsv(190, 1, 1),
+        hsv(200, 1, 1), hsv(210, 1, 1), hsv(220, 1, 1), hsv(230, 1, 1),
+        hsv(240, 1, 1), hsv(250, 1, 1), hsv(260, 1, 1), hsv(270, 1, 1),
+        hsv(280, 1, 1), hsv(290, 1, 1), hsv(300, 1, 1), hsv(310, 1, 1),
+        hsv(320, 1, 1), hsv(330, 1, 1), hsv(340, 1, 1), hsv(350, 1, 1),
         hsv(360, 1, 1),
     ];
     property <[color]> base_saturation: [
@@ -95,19 +70,19 @@ export component ColourSlider inherits VerticalLayout {
         } else {
             c1.value = root.base_colours.length * root.final_colour.to-hsv().hue / 360;
         }
-        // c1.value = root.base_colours.length * 360 / root.final_colour.to-hsv().hue;
         c2.value = root.base_saturation.length - root.base_saturation.length * root.final_colour.to-hsv().saturation;
         c3.value = root.base_value.length - root.base_value.length * root.final_colour.to-hsv().value;
         root.set_base_colour();
         hex = set_hex_from_colour(final_colour);
     }
+
+    // Hue slider strip
     Rectangle {
         height: 32px;
-        border-width: 2px;
-        border-radius: 7px;
-        border-color: Palette.border;
-        // 13 colours
-        background: !root.enabled ? Palette.alternate-background : @linear-gradient(90deg, base_colours[0], base_colours[1], base_colours[2], base_colours[3], base_colours[4], base_colours[5], base_colours[6], base_colours[7], base_colours[8], base_colours[9], base_colours[10], base_colours[11], base_colours[12], base_colours[13], base_colours[14], base_colours[15], base_colours[16], base_colours[17], base_colours[18], base_colours[19], base_colours[20], base_colours[21], base_colours[22], base_colours[23], base_colours[24], base_colours[25], base_colours[26], base_colours[27], base_colours[28], base_colours[29], base_colours[30], base_colours[31], base_colours[32], base_colours[33], base_colours[34], base_colours[35]);
+        border-width: 1px;
+        border-radius: ROGTheme.radius-md;
+        border-color: ROGTheme.border-default;
+        background: !root.enabled ? ROGTheme.bg-surface : @linear-gradient(90deg, base_colours[0], base_colours[1], base_colours[2], base_colours[3], base_colours[4], base_colours[5], base_colours[6], base_colours[7], base_colours[8], base_colours[9], base_colours[10], base_colours[11], base_colours[12], base_colours[13], base_colours[14], base_colours[15], base_colours[16], base_colours[17], base_colours[18], base_colours[19], base_colours[20], base_colours[21], base_colours[22], base_colours[23], base_colours[24], base_colours[25], base_colours[26], base_colours[27], base_colours[28], base_colours[29], base_colours[30], base_colours[31], base_colours[32], base_colours[33], base_colours[34], base_colours[35]);
         clip: true;
         c1 := Slider {
             enabled <=> root.enabled;
@@ -115,24 +90,21 @@ export component ColourSlider inherits VerticalLayout {
             height: parent.height;
             minimum: 0;
             maximum: root.base_colours.length;
-            // One less than the array length
             changed => {
                 set_base_colour();
                 hex = set_hex_from_colour(final_colour);
             }
-            released => {
-                root.released();
-            }
+            released => { root.released(); }
         }
     }
 
+    // Saturation slider strip
     Rectangle {
         height: 32px;
-        border-width: 2px;
-        border-radius: 7px;
-        border-color: Palette.border;
-        // 11 colours
-            background: !root.enabled ? Palette.alternate-background : @linear-gradient(90deg, base_saturation[0], base_saturation[1], base_saturation[2], base_saturation[3], base_saturation[4], base_saturation[5], base_saturation[6], base_saturation[7], base_saturation[8], base_saturation[9], base_saturation[10]);
+        border-width: 1px;
+        border-radius: ROGTheme.radius-md;
+        border-color: ROGTheme.border-default;
+        background: !root.enabled ? ROGTheme.bg-surface : @linear-gradient(90deg, base_saturation[0], base_saturation[1], base_saturation[2], base_saturation[3], base_saturation[4], base_saturation[5], base_saturation[6], base_saturation[7], base_saturation[8], base_saturation[9], base_saturation[10]);
         clip: true;
         c2 := Slider {
             enabled <=> root.enabled;
@@ -144,19 +116,17 @@ export component ColourSlider inherits VerticalLayout {
                 set_base_colour();
                 hex = set_hex_from_colour(final_colour);
             }
-            released => {
-                root.released();
-            }
+            released => { root.released(); }
         }
     }
 
+    // Value/brightness slider strip
     Rectangle {
         height: 32px;
-        border-width: 2px;
-        border-radius: 7px;
-        border-color: Palette.border;
-        // 11 colours
-        background: !root.enabled ? Palette.alternate-background : @linear-gradient(90deg, base_value[0], base_value[1], base_value[2], base_value[3], base_value[4], base_value[5], base_value[6], base_value[7], base_value[8], base_value[9], base_value[10]);
+        border-width: 1px;
+        border-radius: ROGTheme.radius-md;
+        border-color: ROGTheme.border-default;
+        background: !root.enabled ? ROGTheme.bg-surface : @linear-gradient(90deg, base_value[0], base_value[1], base_value[2], base_value[3], base_value[4], base_value[5], base_value[6], base_value[7], base_value[8], base_value[9], base_value[10]);
         clip: true;
         c3 := Slider {
             enabled <=> root.enabled;
@@ -168,16 +138,15 @@ export component ColourSlider inherits VerticalLayout {
                 set_base_colour();
                 hex = set_hex_from_colour(final_colour);
             }
-            released => {
-                root.released();
-            }
+            released => { root.released(); }
         }
     }
 
+    // Hex input + live colour preview orb with glow
     HorizontalLayout {
+        spacing: ROGTheme.spacing-sm;
         LineEdit {
             enabled <=> root.enabled;
-            // width: 50%;
             text <=> root.hex;
             accepted => {
                 base_colour = hex_to_colour(self.text);
@@ -189,12 +158,15 @@ export component ColourSlider inherits VerticalLayout {
             }
         }
 
+        // Colour preview orb with glow
         Rectangle {
             width: self.height;
-            border-width: 2px;
-            border-radius: 7px;
-            border-color: Palette.border;
+            border-width: 1px;
+            border-radius: self.height / 2;
+            border-color: ROGTheme.border-default;
             background <=> root.colourbox;
+            drop-shadow-blur: ROGTheme.glow-blur;
+            drop-shadow-color: root.final_colour.with-alpha(0.4);
         }
     }
 }
