@@ -1,15 +1,77 @@
-import { Palette, VerticalBox , StandardButton, Button, HorizontalBox, ComboBox, Switch, Slider} from "std-widgets.slint";
+// Premium ROG widgets — gaming aesthetic with glow accents
 
-export component RogItem inherits Rectangle {
-    background: Palette.control-background;
-    border-color: Palette.border;
-    border-width: 3px;
-    border-radius: 10px;
+import { VerticalBox, HorizontalBox, StandardButton, Button, ComboBox, Switch, Slider, Dialog } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
+
+// ── RogCard — Container with subtle glow border ──
+export component RogCard inherits Rectangle {
+    background: ROGTheme.bg-surface;
+    border-color: ROGTheme.border-default;
+    border-width: 1px;
+    border-radius: ROGTheme.radius-lg;
+    drop-shadow-blur: 4px;
+    drop-shadow-color: rgba(0, 0, 0, 0.3);
+    min-height: ROGTheme.card-min-height;
+}
+
+// ── RogItem — Row container (backwards-compat with old RogItem) ──
+export component RogItem inherits RogCard {
     min-height: 48px;
     max-height: 56px;
 }
 
-export component SystemSlider inherits RogItem {
+// ── RogButton — Rounded button with glow on hover ──
+export component RogButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> primary: false;
+    callback clicked();
+
+    height: ROGTheme.button-height;
+    min-width: 80px;
+    border-radius: ROGTheme.radius-md;
+    background: root.primary ? ROGTheme.accent : ROGTheme.bg-surface;
+    border-color: root.primary ? ROGTheme.accent : ROGTheme.border-default;
+    border-width: 1px;
+    opacity: root.enabled ? 1.0 : 0.5;
+
+    states [
+        pressed when touch.pressed && root.enabled: {
+            root.background: root.primary ? ROGTheme.accent.darker(0.2) : ROGTheme.bg-surface-hover;
+        }
+        hover when touch.has-hover && root.enabled: {
+            root.drop-shadow-blur: ROGTheme.glow-blur;
+            root.drop-shadow-color: root.primary ? ROGTheme.accent-dim : rgba(255, 255, 255, 0.05);
+            root.border-color: root.primary ? ROGTheme.accent-hover : ROGTheme.border-glow;
+        }
+    ]
+
+    animate background { duration: ROGTheme.anim-fast; }
+    animate drop-shadow-blur { duration: ROGTheme.anim-normal; }
+    animate border-color { duration: ROGTheme.anim-normal; }
+
+    label := Text {
+        color: root.primary ? ROGTheme.text-primary : ROGTheme.text-secondary;
+        text: root.text;
+        font-size: ROGTheme.font-body;
+        font-weight: ROGTheme.weight-medium;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            if (root.enabled) {
+                root.clicked();
+            }
+        }
+    }
+}
+
+// ── RogSlider — Custom slider with gradient fill and glow thumb ──
+export component SystemSlider inherits RogCard {
     in property <string> title;
     in property <string> text;
     in-out property <float> value;
@@ -26,21 +88,21 @@ export component SystemSlider inherits RogItem {
         HorizontalLayout {
             width: 40%;
             alignment: LayoutAlignment.stretch;
-            padding-left: 10px;
+            padding-left: ROGTheme.spacing-md;
             HorizontalLayout {
-                spacing: 6px;
+                spacing: ROGTheme.spacing-sm;
                 Text {
-                    font-size: 16px;
+                    font-size: ROGTheme.font-body;
+                    font-weight: ROGTheme.weight-medium;
                     vertical-alignment: TextVerticalAlignment.center;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.text-primary;
                     text: root.text;
                 }
-
                 Text {
-                    font-size: 16px;
+                    font-size: ROGTheme.font-body;
                     horizontal-alignment: TextHorizontalAlignment.right;
                     vertical-alignment: TextVerticalAlignment.center;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.text-accent;
                     text: "\{Math.round(root.value)}";
                 }
             }
@@ -63,39 +125,37 @@ export component SystemSlider inherits RogItem {
             x: help.x - self.width + help.width - 10px;
             y: help.y - self.height + help.height - 10px;
             Rectangle {
-                drop-shadow-blur: 10px;
-                drop-shadow-color: black;
-                border-radius: 10px;
-                border-color: Palette.accent-background;
-                background: Palette.background;
+                drop-shadow-blur: ROGTheme.glow-blur-strong;
+                drop-shadow-color: rgba(0, 0, 0, 0.6);
+                border-radius: ROGTheme.radius-lg;
+                border-color: ROGTheme.border-glow;
+                border-width: 1px;
+                background: ROGTheme.bg-elevated;
                 Dialog {
                     title: root.title;
                     VerticalBox {
                         Text {
                             max-width: 420px;
-                            font-size: 18px;
+                            font-size: ROGTheme.font-heading;
+                            font-weight: ROGTheme.weight-bold;
                             wrap: TextWrap.word-wrap;
                             horizontal-alignment: TextHorizontalAlignment.center;
+                            color: ROGTheme.text-primary;
                             text: root.title;
                         }
-
                         Rectangle {
                             height: 1px;
-                            border-color: black;
-                            border-width: 1px;
+                            background: ROGTheme.border-default;
                         }
-
                         Text {
                             max-width: 420px;
-                            font-size: 16px;
+                            font-size: ROGTheme.font-body;
                             wrap: TextWrap.word-wrap;
+                            color: ROGTheme.text-secondary;
                             text: root.help_text;
                         }
                     }
-
-                    StandardButton {
-                        kind: ok;
-                    }
+                    StandardButton { kind: ok; }
                 }
             }
         }
@@ -103,9 +163,7 @@ export component SystemSlider inherits RogItem {
         help := HorizontalBox {
             if (help_text != ""): StandardButton {
                 kind: StandardButtonKind.help;
-                clicked => {
-                    help_popup.show();
-                }
+                clicked => { help_popup.show(); }
             }
         }
 
@@ -113,29 +171,25 @@ export component SystemSlider inherits RogItem {
             x: reset.x - self.width + reset.width;
             y: reset.y - self.height + reset.height;
             Rectangle {
-                drop-shadow-blur: 10px;
-                drop-shadow-color: black;
-                border-radius: 10px;
-                border-color: Palette.accent-background;
-                background: Palette.background;
+                drop-shadow-blur: ROGTheme.glow-blur-strong;
+                drop-shadow-color: rgba(0, 0, 0, 0.6);
+                border-radius: ROGTheme.radius-lg;
+                border-color: ROGTheme.border-glow;
+                border-width: 1px;
+                background: ROGTheme.bg-elevated;
                 Dialog {
                     Text {
                         max-width: 420px;
-                        font-size: 16px;
+                        font-size: ROGTheme.font-body;
                         wrap: TextWrap.word-wrap;
+                        color: ROGTheme.text-secondary;
                         text: @tr("confirm_reset" => "Are you sure you want to reset this?");
                     }
-
                     StandardButton {
                         kind: ok;
-                        clicked => {
-                            root.cb_do_reset();
-                        }
+                        clicked => { root.cb_do_reset(); }
                     }
-
-                    StandardButton {
-                        kind: cancel;
-                    }
+                    StandardButton { kind: cancel; }
                 }
             }
         }
@@ -144,62 +198,58 @@ export component SystemSlider inherits RogItem {
             if (has_reset): StandardButton {
                 kind: StandardButtonKind.reset;
                 enabled: root.enabled;
-                clicked => {
-                    reset_popup.show();
-                }
+                clicked => { reset_popup.show(); }
             }
         }
     }
 }
 
-export component SystemToggle inherits RogItem {
+// ── SystemToggle — Pill toggle with glow when active ──
+export component SystemToggle inherits RogCard {
     in property <string> text;
     in-out property <bool> checked;
     callback toggled(bool);
     HorizontalLayout {
-        spacing: 6px;
+        spacing: ROGTheme.spacing-sm;
         HorizontalLayout {
             alignment: LayoutAlignment.start;
-            padding-left: 10px;
+            padding-left: ROGTheme.spacing-md;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
+                font-weight: ROGTheme.weight-medium;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-primary;
                 text: root.text;
             }
         }
-
         HorizontalLayout {
             alignment: LayoutAlignment.end;
             padding-right: 20px;
             Switch {
                 checked <=> root.checked;
-                toggled => {
-                    root.toggled(root.checked)
-                }
+                toggled => { root.toggled(root.checked) }
             }
         }
     }
 }
 
-export component SystemToggleInt inherits RogItem {
+export component SystemToggleInt inherits RogCard {
     in property <string> text;
-    // in-out property <bool> checked;
     in-out property <int> checked_int;
     callback toggled(int);
     HorizontalLayout {
-        spacing: 6px;
+        spacing: ROGTheme.spacing-sm;
         HorizontalLayout {
             alignment: LayoutAlignment.start;
-            padding-left: 10px;
+            padding-left: ROGTheme.spacing-md;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
+                font-weight: ROGTheme.weight-medium;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-primary;
                 text: root.text;
             }
         }
-
         HorizontalLayout {
             alignment: LayoutAlignment.end;
             padding-right: 20px;
@@ -214,36 +264,35 @@ export component SystemToggleInt inherits RogItem {
     }
 }
 
-export component SystemToggleVert inherits RogItem {
+export component SystemToggleVert inherits RogCard {
     in property <string> text;
     in-out property <bool> checked;
     callback toggled(bool);
     min-height: 86px;
     VerticalLayout {
         alignment: LayoutAlignment.space-around;
-        padding-top: 8px;
+        padding-top: ROGTheme.spacing-sm;
         Text {
-            font-size: 16px;
+            font-size: ROGTheme.font-body;
+            font-weight: ROGTheme.weight-medium;
             vertical-alignment: TextVerticalAlignment.bottom;
             horizontal-alignment: TextHorizontalAlignment.center;
-            color: Palette.control-foreground;
+            color: ROGTheme.text-primary;
             text: root.text;
         }
-
         HorizontalLayout {
             alignment: LayoutAlignment.center;
-            padding-bottom: 10px;
+            padding-bottom: ROGTheme.spacing-md;
             Switch {
                 checked <=> root.checked;
-                toggled => {
-                    root.toggled(root.checked)
-                }
+                toggled => { root.toggled(root.checked) }
             }
         }
     }
 }
 
-export component SystemDropdown inherits RogItem {
+// ── SystemDropdown — Dark dropdown with accent border on focus ──
+export component SystemDropdown inherits RogCard {
     in property <string> text;
     in-out property <int> current_index;
     in-out property <string> current_value;
@@ -252,15 +301,15 @@ export component SystemDropdown inherits RogItem {
     HorizontalLayout {
         HorizontalLayout {
             alignment: LayoutAlignment.start;
-            padding-left: 10px;
+            padding-left: ROGTheme.spacing-md;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
+                font-weight: ROGTheme.weight-medium;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-primary;
                 text: root.text;
             }
         }
-
         HorizontalLayout {
             alignment: LayoutAlignment.end;
             padding-right: 20px;
@@ -270,14 +319,13 @@ export component SystemDropdown inherits RogItem {
                 model <=> root.model;
                 current-index <=> root.current_index;
                 current-value <=> root.current_value;
-                selected => {
-                    root.selected(root.current_index)
-                }
+                selected => { root.selected(root.current_index) }
             }
         }
     }
 }
 
+// ── PopupNotification — Premium popup with glow border ──
 export component PopupNotification {
     in property <string> heading;
     in property <string> content;
@@ -286,42 +334,31 @@ export component PopupNotification {
         y: root.y;
         width: root.width;
         height: root.height;
-        // TODO: add properties to display
         Rectangle {
-            border-width: 2px;
-            border-color: Palette.accent-background;
-            background: Palette.background;
-            // TODO: drop shadows slow
-            // drop-shadow-offset-x: 7px;
-            // drop-shadow-offset-y: 7px;
-            // drop-shadow-color: black;
-            // drop-shadow-blur: 30px;
+            border-width: 1px;
+            border-color: ROGTheme.border-glow;
+            border-radius: ROGTheme.radius-lg;
+            background: ROGTheme.bg-elevated;
+            drop-shadow-blur: ROGTheme.glow-blur-strong;
+            drop-shadow-color: rgba(0, 0, 0, 0.6);
             VerticalLayout {
                 Dialog {
                     VerticalLayout {
                         alignment: start;
                         Text {
                             text: heading;
-                            color: Palette.control-foreground;
+                            color: ROGTheme.text-primary;
                             font-size: 32px;
-                            font-weight: 900;
+                            font-weight: ROGTheme.weight-bold;
                         }
-
                         Text {
                             text: content;
-                            color: Palette.control-foreground;
-                            font-size: 18px;
+                            color: ROGTheme.text-secondary;
+                            font-size: ROGTheme.font-heading;
                         }
                     }
-
-                    StandardButton {
-                        kind: ok;
-                    }
-
-                    StandardButton {
-                        kind: cancel;
-                    }
-
+                    StandardButton { kind: ok; }
+                    StandardButton { kind: cancel; }
                     Button {
                         text: "More Info";
                         dialog-button-role: action;
