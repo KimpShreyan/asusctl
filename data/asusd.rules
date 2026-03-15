@@ -17,4 +17,9 @@ LABEL="asusd_start"
 ACTION=="add|change", DRIVER=="asus-nb-wmi", TAG+="systemd", ENV{SYSTEMD_WANTS}="asusd.service"
 ACTION=="add|remove", DRIVER=="asus-nb-wmi", TAG+="systemd", RUN+="/usr/bin/systemctl restart asusd.service"
 
+# Grant asusd access to ASUS keyboard input devices for hotkey daemon
+SUBSYSTEM=="input", ATTRS{idVendor}=="0b05", TAG+="uaccess", TAG+="asusd-hotkeys"
+SUBSYSTEM=="input", ATTR{name}=="*Asus*", TAG+="uaccess", TAG+="asusd-hotkeys"
+SUBSYSTEM=="input", ATTR{name}=="*ASUS*", TAG+="uaccess", TAG+="asusd-hotkeys"
+
 LABEL="asusd_end"

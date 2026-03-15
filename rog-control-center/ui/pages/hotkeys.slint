@@ -1,0 +1,256 @@
+// Hotkeys page — Fn key bindings + macro editor
+
+import { ROGTheme } from "../theme.slint";
+import { RogItem, RogCard, RogButton, SystemDropdown } from "../widgets/common.slint";
+import { ScrollView, VerticalBox, HorizontalBox, Button, LineEdit } from "std-widgets.slint";
+
+export global HotkeysPageData {
+    // Key bindings table
+    in-out property <[string]> binding_keys: [
+        "Fn+F5", "Fn+F4", "ROG Button", "Fn+\u{2191}", "Fn+\u{2193}",
+    ];
+    in-out property <[string]> binding_actions: [
+        "Cycle Profile", "Cycle Aura", "Open GUI", "Aura Bright+", "Aura Bright-",
+    ];
+    in-out property <[string]> available_actions: [
+        "Cycle Profile", "Cycle Aura", "Open GUI",
+        "Aura Bright+", "Aura Bright-", "Custom Command", "Passthrough",
+    ];
+    callback cb_binding_changed(/* index */ int, /* action_index */ int);
+
+    // ROG button
+    in-out property <int> rog_button_action: 0;
+    in-out property <[string]> rog_button_actions: [
+        "Open GUI", "Cycle Profile", "Toggle Noise Cancel", "Custom Command",
+    ];
+    in-out property <string> rog_button_command: "";
+    callback cb_rog_button_action(int);
+    callback cb_rog_button_command(string);
+
+    // Macros
+    in-out property <[string]> macro_names: [];
+    in-out property <bool> recording: false;
+    in-out property <string> recording_name: "";
+    in-out property <string> recording_keys: "";
+    callback cb_macro_record_start(string);
+    callback cb_macro_record_stop();
+    callback cb_macro_play(string);
+    callback cb_macro_delete(string);
+}
+
+export component PageHotkeys inherits Rectangle {
+    background: transparent;
+    clip: true;
+
+    ScrollView {
+        VerticalLayout {
+            padding: ROGTheme.spacing-lg;
+            spacing: ROGTheme.spacing-lg;
+            alignment: LayoutAlignment.start;
+
+            // ── Section: Key Bindings ──
+            RogCard {
+                min-height: 40px;
+                max-height: 40px;
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        font-size: ROGTheme.font-heading;
+                        font-weight: ROGTheme.weight-bold;
+                        color: ROGTheme.text-primary;
+                        horizontal-alignment: TextHorizontalAlignment.center;
+                        text: @tr("Fn Key Bindings");
+                    }
+                }
+            }
+
+            for key[idx] in HotkeysPageData.binding_keys: RogItem {
+                HorizontalLayout {
+                    padding-left: ROGTheme.spacing-lg;
+                    padding-right: ROGTheme.spacing-lg;
+                    spacing: ROGTheme.spacing-md;
+
+                    // Key name
+                    HorizontalLayout {
+                        width: 30%;
+                        Text {
+                            font-size: ROGTheme.font-body;
+                            font-weight: ROGTheme.weight-bold;
+                            color: ROGTheme.text-accent;
+                            vertical-alignment: center;
+                            text: key;
+                        }
+                    }
+
+                    // Current action
+                    HorizontalLayout {
+                        width: 30%;
+                        Text {
+                            font-size: ROGTheme.font-body;
+                            color: ROGTheme.text-secondary;
+                            vertical-alignment: center;
+                            text: HotkeysPageData.binding_actions[idx];
+                        }
+                    }
+                }
+            }
+
+            // ── Section: ROG Button ──
+            RogCard {
+                min-height: 40px;
+                max-height: 40px;
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        font-size: ROGTheme.font-heading;
+                        font-weight: ROGTheme.weight-bold;
+                        color: ROGTheme.text-primary;
+                        horizontal-alignment: TextHorizontalAlignment.center;
+                        text: @tr("ROG Button");
+                    }
+                }
+            }
+
+            SystemDropdown {
+                text: @tr("ROG Button Action");
+                current_index <=> HotkeysPageData.rog_button_action;
+                current_value: HotkeysPageData.rog_button_actions[HotkeysPageData.rog_button_action];
+                model <=> HotkeysPageData.rog_button_actions;
+                selected => {
+                    HotkeysPageData.cb_rog_button_action(HotkeysPageData.rog_button_action);
+                }
+            }
+
+            if HotkeysPageData.rog_button_action == 3: RogItem {
+                HorizontalLayout {
+                    padding-left: ROGTheme.spacing-lg;
+                    padding-right: ROGTheme.spacing-lg;
+                    spacing: ROGTheme.spacing-md;
+                    Text {
+                        width: 30%;
+                        font-size: ROGTheme.font-body;
+                        color: ROGTheme.text-secondary;
+                        vertical-alignment: center;
+                        text: @tr("Command:");
+                    }
+                    LineEdit {
+                        text <=> HotkeysPageData.rog_button_command;
+                        accepted => {
+                            HotkeysPageData.cb_rog_button_command(self.text);
+                        }
+                    }
+                }
+            }
+
+            // ── Section: Macros ──
+            RogCard {
+                min-height: 40px;
+                max-height: 40px;
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        font-size: ROGTheme.font-heading;
+                        font-weight: ROGTheme.weight-bold;
+                        color: ROGTheme.text-primary;
+                        horizontal-alignment: TextHorizontalAlignment.center;
+                        text: @tr("Macros");
+                    }
+                }
+            }
+
+            // Record controls
+            RogItem {
+                min-height: 56px;
+                max-height: 64px;
+                HorizontalLayout {
+                    padding-left: ROGTheme.spacing-lg;
+                    padding-right: ROGTheme.spacing-lg;
+                    spacing: ROGTheme.spacing-md;
+
+                    LineEdit {
+                        text <=> HotkeysPageData.recording_name;
+                        placeholder-text: @tr("Macro name...");
+                    }
+
+                    if !HotkeysPageData.recording: RogButton {
+                        text: @tr("Record");
+                        primary: true;
+                        clicked => {
+                            HotkeysPageData.cb_macro_record_start(HotkeysPageData.recording_name);
+                        }
+                    }
+
+                    if HotkeysPageData.recording: RogButton {
+                        text: @tr("Stop");
+                        primary: true;
+                        clicked => {
+                            HotkeysPageData.cb_macro_record_stop();
+                        }
+                    }
+                }
+            }
+
+            // Recording indicator
+            if HotkeysPageData.recording: RogCard {
+                min-height: 36px;
+                max-height: 36px;
+                HorizontalLayout {
+                    padding-left: ROGTheme.spacing-lg;
+                    spacing: ROGTheme.spacing-sm;
+                    // Red recording dot
+                    Rectangle {
+                        width: 10px;
+                        height: 10px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: 5px;
+                        background: ROGTheme.accent;
+                        drop-shadow-blur: ROGTheme.glow-blur;
+                        drop-shadow-color: ROGTheme.accent-dim;
+                    }
+                    Text {
+                        font-size: ROGTheme.font-label;
+                        color: ROGTheme.accent;
+                        vertical-alignment: center;
+                        text: @tr("Recording... Press keys to capture");
+                    }
+                }
+            }
+
+            // Macro list
+            for name[idx] in HotkeysPageData.macro_names: RogItem {
+                HorizontalLayout {
+                    padding-left: ROGTheme.spacing-lg;
+                    padding-right: ROGTheme.spacing-lg;
+                    spacing: ROGTheme.spacing-md;
+
+                    Text {
+                        font-size: ROGTheme.font-body;
+                        font-weight: ROGTheme.weight-medium;
+                        color: ROGTheme.text-primary;
+                        vertical-alignment: center;
+                        text: name;
+                    }
+
+                    HorizontalLayout {
+                        alignment: LayoutAlignment.end;
+                        spacing: ROGTheme.spacing-sm;
+
+                        RogButton {
+                            text: @tr("Play");
+                            clicked => {
+                                HotkeysPageData.cb_macro_play(name);
+                            }
+                        }
+
+                        RogButton {
+                            text: @tr("Delete");
+                            clicked => {
+                                HotkeysPageData.cb_macro_delete(name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
