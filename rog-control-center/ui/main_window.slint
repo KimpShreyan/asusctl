@@ -1,7 +1,10 @@
 import { Palette, Button, VerticalBox } from "std-widgets.slint";
+import { ROGTheme } from "theme.slint";
 import { AppSize } from "globals.slint";
+import { SideBar, SideBarEntry } from "widgets/sidebar.slint";
+import { PageDashboard, DashboardPageData } from "pages/dashboard.slint";
+import { MonitorEntry, ProductInfo, FanModeEntry } from "types/monitor_types.slint";
 import { PageSystem, SystemPageData, AttrMinMax } from "pages/system.slint";
-import { SideBar } from "widgets/sidebar.slint";
 import { PageAbout } from "pages/about.slint";
 import { PageFans } from "pages/fans.slint";
 import { PageAnime, AnimePageData } from "pages/anime.slint";
@@ -16,62 +19,75 @@ export { AuraPageData, AuraDevType, LaptopAuraPower, AuraPowerState, PowerZones,
 import { PageAppSettings, AppSettingsPageData } from "pages/app_settings.slint";
 
 export { AppSize, AttrMinMax, SystemPageData, AnimePageData, AppSettingsPageData }
+export { DashboardPageData, MonitorEntry, ProductInfo, FanModeEntry, SideBarEntry }
 
 export component MainWindow inherits Window {
     title: "ROG Control";
-    always-on-top: true;
     default-font-family: "Noto Sans";
     default-font-size: 14px;
     default-font-weight: 400;
     icon: @image-url("../data/rog-control-center.png");
-    in property <[bool]> sidebar_items_avilable: [true, true, true, true, true, true];
+
+    in property <[SideBarEntry]> sidebar-entries: [
+        { label: "Dashboard", section: "", available: true },
+        { label: "System Control", section: "Main", available: true },
+        { label: "Keyboard Aura", section: "Playground", available: true },
+        { label: "AniMe Matrix", section: "", available: true },
+        { label: "Fan Curves", section: "Controls", available: true },
+        { label: "App Settings", section: "Settings", available: true },
+        { label: "About", section: "", available: true },
+    ];
+
     private property <bool> show_notif;
     private property <bool> fade_cover;
     private property <bool> toast: false;
     private property <string> toast_text: "I show when something is waiting";
+
     callback show_toast(string);
     show_toast(text) => {
         toast = text != "";
         toast_text = text;
     }
+
     callback exit-app();
+
     callback show_notification(bool);
     show_notification(yes) => {
         show_notif = yes;
         fade_cover = yes;
     }
+
     callback external_colour_change();
     external_colour_change() => {
         aura.external_colour_change();
         aura.external_colour_change();
     }
+
     min-height: AppSize.height;
     min-width: AppSize.width;
-    background: Colors.black;
+    background: ROGTheme.bg-primary;
+
     HorizontalLayout {
         padding: 0px;
+
         VerticalLayout {
             side-bar := SideBar {
-                title: @tr("ROG");
-                model: [
-                    @tr("Menu1" => "System Control"),
-                    @tr("Menu2" => "Keyboard Aura"),
-                    @tr("Menu3" => "AniMe Matrix"),
-                    @tr("Menu4" => "Fan Curves"),
-                    @tr("Menu5" => "App Settings"),
-                    @tr("Menu6" => "About"),
-                ];
-                available: root.sidebar_items_avilable;
+                title: @tr("ROG Control");
+                entries: root.sidebar-entries;
             }
 
+            // Quit button at sidebar bottom
             Rectangle {
                 max-height: 40px;
                 width: side-bar.width;
-                background: Palette.control-background;
+                background: ROGTheme.bg-secondary;
+
                 Text {
                     vertical-alignment: center;
                     horizontal-alignment: center;
                     text: @tr("Quit App");
+                    color: ROGTheme.text-secondary;
+                    font-size: ROGTheme.font-label;
                 }
 
                 TouchArea {
@@ -83,48 +99,60 @@ export component MainWindow inherits Window {
         }
 
         Rectangle {
-            background: Palette.background;
-            if(side-bar.current-item == 0): page := PageSystem {
+            background: ROGTheme.bg-primary;
+
+            // Page 0: Dashboard (always available)
+            if side-bar.current-item == 0: PageDashboard {
+                width: root.width - side-bar.width;
+                height: root.height;
+            }
+
+            // Page 1: System Control
+            if side-bar.current-item == 1: page := PageSystem {
                 width: root.width - side-bar.width;
                 height: root.height + 12px;
             }
 
+            // Page 2: Keyboard Aura
             aura := PageAura {
                 width: root.width - side-bar.width;
-                visible: side-bar.current-item == 1;
+                visible: side-bar.current-item == 2;
             }
 
-            if(side-bar.current-item == 2): PageAnime {
+            // Page 3: AniMe Matrix
+            if side-bar.current-item == 3: PageAnime {
                 width: root.width - side-bar.width;
             }
 
+            // Page 4: Fan Curves
             fans := PageFans {
                 width: root.width - side-bar.width;
-                visible: side-bar.current-item == 3;
+                visible: side-bar.current-item == 4;
             }
 
-            if(side-bar.current-item == 4): PageAppSettings {
+            // Page 5: App Settings
+            if side-bar.current-item == 5: PageAppSettings {
                 width: root.width - side-bar.width;
             }
 
-            if(side-bar.current-item == 5): PageAbout {
+            // Page 6: About
+            if side-bar.current-item == 6: PageAbout {
                 width: root.width - side-bar.width;
             }
         }
     }
 
+    // Fade cover for modals
     if fade_cover: Rectangle {
         x: 0px;
         y: 0px;
         width: root.width;
         height: root.height;
-        background: Colors.rgba(25,33,23,20);
-        opacity: 0.7;
+        background: rgba(0, 0, 0, 0.7);
         TouchArea {
             height: 100%;
             width: 100%;
             clicked => {
-                // toolbar-dropdown.close();
                 if (show_notif) {
                     show_notif = false;
                 }
@@ -133,13 +161,29 @@ export component MainWindow inherits Window {
         }
     }
 
+    // Toast notification bar
     if toast: Rectangle {
         x: 0px;
         y: 0px;
         width: root.width;
         height: 32px;
         opacity: 1.0;
-        background: Colors.grey;
+
+        Rectangle {
+            height: 100%;
+            width: 100%;
+            background: ROGTheme.bg-elevated;
+            border-width: 0px;
+            border-color: ROGTheme.border-default;
+
+            Text {
+                color: ROGTheme.text-primary;
+                text: root.toast_text;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+        }
+
         TouchArea {
             height: 100%;
             width: 100%;
@@ -147,24 +191,15 @@ export component MainWindow inherits Window {
                 toast = false;
             }
         }
-
-        Rectangle {
-            height: 100%;
-            width: 100%;
-            background: Palette.control-background;
-            Text {
-                color: Palette.control-foreground;
-                text: root.toast_text;
-            }
-        }
     }
 
-    // // TODO: or use Dialogue
+    // Notification dialog
     if show_notif: Rectangle {
         x: root.width / 8;
         y: root.height / 8;
         height: (root.height / 8) * 6;
         width: (root.width / 8) * 6;
+
         TouchArea {
             height: 100%;
             width: 100%;
@@ -174,17 +209,22 @@ export component MainWindow inherits Window {
             }
         }
 
-        // TODO: add properties to display
         Rectangle {
             height: 100%;
             width: 100%;
-            background: Palette.background;
+            background: ROGTheme.bg-elevated;
+            border-radius: ROGTheme.radius-lg;
+            border-width: 1px;
+            border-color: ROGTheme.border-default;
+
             Text {
                 text: "Click here to exit";
+                color: ROGTheme.text-primary;
             }
         }
     }
 
+    // Error overlay
     if SomeError.error_message != "": Rectangle {
         x: 0px;
         y: 0px;
@@ -192,10 +232,10 @@ export component MainWindow inherits Window {
         height: root.height;
         padding: 10px;
 
-        background: Palette.background;
-        border-color: Palette.border;
+        background: ROGTheme.bg-primary;
+        border-color: ROGTheme.status-error;
         border-width: 3px;
-        border-radius: 10px;
+        border-radius: ROGTheme.radius-lg;
 
         VerticalBox {
             RogItem {
@@ -204,6 +244,7 @@ export component MainWindow inherits Window {
                 Text {
                     text <=> SomeError.error_message;
                     font-size: 18px;
+                    color: ROGTheme.text-primary;
                 }
             }
 
@@ -211,6 +252,7 @@ export component MainWindow inherits Window {
                 text <=> SomeError.error_help;
                 horizontal-alignment: TextHorizontalAlignment.center;
                 vertical-alignment: TextVerticalAlignment.center;
+                color: ROGTheme.text-secondary;
             }
         }
     }

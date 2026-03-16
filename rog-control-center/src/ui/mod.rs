@@ -1,5 +1,6 @@
 pub mod setup_anime;
 pub mod setup_aura;
+pub mod setup_dashboard;
 pub mod setup_fans;
 pub mod setup_system;
 
@@ -8,14 +9,15 @@ use std::sync::{Arc, Mutex};
 use config_traits::StdConfig;
 use log::warn;
 use rog_dbus::list_iface_blocking;
-use slint::{ComponentHandle, SharedString, Weak};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel, Weak};
 
 use crate::config::Config;
 use crate::ui::setup_anime::setup_anime_page;
 use crate::ui::setup_aura::setup_aura_page;
+use crate::ui::setup_dashboard::{setup_dashboard_monitoring, setup_dashboard_page};
 use crate::ui::setup_fans::setup_fan_curve_page;
 use crate::ui::setup_system::{setup_system_page, setup_system_page_callbacks};
-use crate::{AppSettingsPageData, MainWindow};
+use crate::{AppSettingsPageData, MainWindow, SideBarEntry};
 
 // this macro sets up:
 // - a link from UI callback -> dbus proxy property
@@ -95,35 +97,72 @@ pub fn setup_window(config: Arc<Mutex<Config>>) -> MainWindow {
         .unwrap();
 
     let available = list_iface_blocking().unwrap_or_default();
-    ui.set_sidebar_items_avilable(
-        [
-            // Needs to match the order of slint sidebar items
-            available.contains(&"xyz.ljones.Platform".to_string()),
-            available.contains(&"xyz.ljones.Aura".to_string()),
-            available.contains(&"xyz.ljones.Anime".to_string()),
-            available.contains(&"xyz.ljones.FanCurves".to_string()),
-            true,
-            true,
-        ]
-        .into(),
-    );
+
+    let has_platform = available.contains(&"xyz.ljones.Platform".to_string());
+    let has_aura = available.contains(&"xyz.ljones.Aura".to_string());
+    let has_anime = available.contains(&"xyz.ljones.Anime".to_string());
+    let has_fans = available.contains(&"xyz.ljones.FanCurves".to_string());
+
+    // Sidebar entries: Dashboard(0), System(1), Aura(2), AniMe(3), Fans(4), Settings(5), About(6)
+    let entries = vec![
+        SideBarEntry {
+            label: "Dashboard".into(),
+            section: "".into(),
+            available: true,
+        },
+        SideBarEntry {
+            label: "System Control".into(),
+            section: "Main".into(),
+            available: has_platform,
+        },
+        SideBarEntry {
+            label: "Keyboard Aura".into(),
+            section: "Playground".into(),
+            available: has_aura,
+        },
+        SideBarEntry {
+            label: "AniMe Matrix".into(),
+            section: "".into(),
+            available: has_anime,
+        },
+        SideBarEntry {
+            label: "Fan Curves".into(),
+            section: "Controls".into(),
+            available: has_fans,
+        },
+        SideBarEntry {
+            label: "App Settings".into(),
+            section: "Settings".into(),
+            available: true,
+        },
+        SideBarEntry {
+            label: "About".into(),
+            section: "".into(),
+            available: true,
+        },
+    ];
+    ui.set_sidebar_entries(ModelRc::new(VecModel::from(entries)));
 
     ui.on_exit_app(move || {
         slint::quit_event_loop().unwrap();
     });
 
+    // Dashboard page (always available)
+    setup_dashboard_page(&ui);
+    setup_dashboard_monitoring(ui.as_weak());
+
     setup_app_settings_page(&ui, config.clone());
-    if available.contains(&"xyz.ljones.Platform".to_string()) {
+    if has_platform {
         setup_system_page(&ui, config.clone());
         setup_system_page_callbacks(&ui, config.clone());
     }
-    if available.contains(&"xyz.ljones.Aura".to_string()) {
+    if has_aura {
         setup_aura_page(&ui, config.clone());
     }
-    if available.contains(&"xyz.ljones.Anime".to_string()) {
+    if has_anime {
         setup_anime_page(&ui, config.clone());
     }
-    if available.contains(&"xyz.ljones.FanCurves".to_string()) {
+    if has_fans {
         setup_fan_curve_page(&ui, config);
     }
 

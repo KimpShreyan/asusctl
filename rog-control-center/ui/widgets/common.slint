@@ -1,10 +1,11 @@
-import { Palette, VerticalBox , StandardButton, Button, HorizontalBox, ComboBox, Switch, Slider} from "std-widgets.slint";
+import { VerticalBox, StandardButton, Button, HorizontalBox, ComboBox, Switch, Slider } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 
 export component RogItem inherits Rectangle {
-    background: Palette.control-background;
-    border-color: Palette.border;
-    border-width: 3px;
-    border-radius: 10px;
+    background: ROGTheme.bg-surface;
+    border-color: ROGTheme.border-default;
+    border-width: 1px;
+    border-radius: ROGTheme.radius-md;
     min-height: 48px;
     max-height: 56px;
 }
@@ -30,17 +31,17 @@ export component SystemSlider inherits RogItem {
             HorizontalLayout {
                 spacing: 6px;
                 Text {
-                    font-size: 16px;
+                    font-size: ROGTheme.font-body;
                     vertical-alignment: TextVerticalAlignment.center;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.text-secondary;
                     text: root.text;
                 }
 
                 Text {
-                    font-size: 16px;
+                    font-size: ROGTheme.font-body;
                     horizontal-alignment: TextHorizontalAlignment.right;
                     vertical-alignment: TextVerticalAlignment.center;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.accent;
                     text: "\{Math.round(root.value)}";
                 }
             }
@@ -63,32 +64,33 @@ export component SystemSlider inherits RogItem {
             x: help.x - self.width + help.width - 10px;
             y: help.y - self.height + help.height - 10px;
             Rectangle {
-                drop-shadow-blur: 10px;
-                drop-shadow-color: black;
-                border-radius: 10px;
-                border-color: Palette.accent-background;
-                background: Palette.background;
+                drop-shadow-blur: ROGTheme.glow-blur;
+                drop-shadow-color: ROGTheme.accent-dim;
+                border-radius: ROGTheme.radius-lg;
+                border-color: ROGTheme.border-glow;
+                background: ROGTheme.bg-elevated;
                 Dialog {
                     title: root.title;
                     VerticalBox {
                         Text {
                             max-width: 420px;
-                            font-size: 18px;
+                            font-size: ROGTheme.font-heading;
                             wrap: TextWrap.word-wrap;
                             horizontal-alignment: TextHorizontalAlignment.center;
+                            color: ROGTheme.text-primary;
                             text: root.title;
                         }
 
                         Rectangle {
                             height: 1px;
-                            border-color: black;
-                            border-width: 1px;
+                            background: ROGTheme.border-default;
                         }
 
                         Text {
                             max-width: 420px;
-                            font-size: 16px;
+                            font-size: ROGTheme.font-body;
                             wrap: TextWrap.word-wrap;
+                            color: ROGTheme.text-secondary;
                             text: root.help_text;
                         }
                     }
@@ -113,16 +115,17 @@ export component SystemSlider inherits RogItem {
             x: reset.x - self.width + reset.width;
             y: reset.y - self.height + reset.height;
             Rectangle {
-                drop-shadow-blur: 10px;
-                drop-shadow-color: black;
-                border-radius: 10px;
-                border-color: Palette.accent-background;
-                background: Palette.background;
+                drop-shadow-blur: ROGTheme.glow-blur;
+                drop-shadow-color: ROGTheme.accent-dim;
+                border-radius: ROGTheme.radius-lg;
+                border-color: ROGTheme.border-glow;
+                background: ROGTheme.bg-elevated;
                 Dialog {
                     Text {
                         max-width: 420px;
-                        font-size: 16px;
+                        font-size: ROGTheme.font-body;
                         wrap: TextWrap.word-wrap;
+                        color: ROGTheme.text-primary;
                         text: @tr("confirm_reset" => "Are you sure you want to reset this?");
                     }
 
@@ -162,9 +165,9 @@ export component SystemToggle inherits RogItem {
             alignment: LayoutAlignment.start;
             padding-left: 10px;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-secondary;
                 text: root.text;
             }
         }
@@ -184,7 +187,6 @@ export component SystemToggle inherits RogItem {
 
 export component SystemToggleInt inherits RogItem {
     in property <string> text;
-    // in-out property <bool> checked;
     in-out property <int> checked_int;
     callback toggled(int);
     HorizontalLayout {
@@ -193,9 +195,9 @@ export component SystemToggleInt inherits RogItem {
             alignment: LayoutAlignment.start;
             padding-left: 10px;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-secondary;
                 text: root.text;
             }
         }
@@ -223,10 +225,10 @@ export component SystemToggleVert inherits RogItem {
         alignment: LayoutAlignment.space-around;
         padding-top: 8px;
         Text {
-            font-size: 16px;
+            font-size: ROGTheme.font-body;
             vertical-alignment: TextVerticalAlignment.bottom;
             horizontal-alignment: TextHorizontalAlignment.center;
-            color: Palette.control-foreground;
+            color: ROGTheme.text-secondary;
             text: root.text;
         }
 
@@ -254,9 +256,9 @@ export component SystemDropdown inherits RogItem {
             alignment: LayoutAlignment.start;
             padding-left: 10px;
             Text {
-                font-size: 16px;
+                font-size: ROGTheme.font-body;
                 vertical-alignment: TextVerticalAlignment.center;
-                color: Palette.control-foreground;
+                color: ROGTheme.text-secondary;
                 text: root.text;
             }
         }
@@ -286,30 +288,27 @@ export component PopupNotification {
         y: root.y;
         width: root.width;
         height: root.height;
-        // TODO: add properties to display
         Rectangle {
-            border-width: 2px;
-            border-color: Palette.accent-background;
-            background: Palette.background;
-            // TODO: drop shadows slow
-            // drop-shadow-offset-x: 7px;
-            // drop-shadow-offset-y: 7px;
-            // drop-shadow-color: black;
-            // drop-shadow-blur: 30px;
+            border-width: 1px;
+            border-color: ROGTheme.border-glow;
+            background: ROGTheme.bg-elevated;
+            drop-shadow-blur: ROGTheme.glow-blur;
+            drop-shadow-color: ROGTheme.accent-dim;
+            border-radius: ROGTheme.radius-lg;
             VerticalLayout {
                 Dialog {
                     VerticalLayout {
                         alignment: start;
                         Text {
                             text: heading;
-                            color: Palette.control-foreground;
+                            color: ROGTheme.text-primary;
                             font-size: 32px;
                             font-weight: 900;
                         }
 
                         Text {
                             text: content;
-                            color: Palette.control-foreground;
+                            color: ROGTheme.text-secondary;
                             font-size: 18px;
                         }
                     }

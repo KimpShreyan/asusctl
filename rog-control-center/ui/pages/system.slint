@@ -1,5 +1,6 @@
 import { SystemSlider, SystemDropdown, SystemToggle, SystemToggleInt, RogItem } from "../widgets/common.slint";
-import { Palette, HorizontalBox , VerticalBox, ScrollView, Slider, Button, Switch, ComboBox, GroupBox, StandardButton} from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, ScrollView, Slider, Button, Switch, ComboBox, GroupBox, StandardButton } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 
 export struct AttrMinMax {
   min: int,
@@ -147,14 +148,14 @@ export component PageSystem inherits Rectangle {
             spacing: 10px;
             alignment: LayoutAlignment.start;
             Rectangle {
-                background: Palette.alternate-background;
-                border-color: Palette.accent-background;
+                background: ROGTheme.bg-surface;
+                border-color: ROGTheme.accent;
                 border-width: 3px;
                 border-radius: 10px;
                 height: 40px;
                 Text {
                     font-size: 18px;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.text-secondary;
                     horizontal-alignment: TextHorizontalAlignment.center;
                     text: @tr("Power settings");
                 }
@@ -205,7 +206,7 @@ export component PageSystem inherits Rectangle {
                         Text {
                             font-size: 16px;
                             vertical-alignment: TextVerticalAlignment.center;
-                            color: Palette.control-foreground;
+                            color: ROGTheme.text-secondary;
                             text: @tr("Screenpad brightness");
                         }
                     }
@@ -241,14 +242,14 @@ export component PageSystem inherits Rectangle {
             }
 
             Rectangle {
-                background: Palette.alternate-background;
-                border-color: Palette.accent-background;
+                background: ROGTheme.bg-surface;
+                border-color: ROGTheme.accent;
                 border-width: 3px;
                 border-radius: 10px;
                 height: 40px;
                 Text {
                     font-size: 18px;
-                    color: Palette.control-foreground;
+                    color: ROGTheme.text-secondary;
                     horizontal-alignment: TextHorizontalAlignment.center;
                     text: @tr("Armoury settings");
                 }
@@ -478,7 +479,7 @@ export component PageSystem inherits Rectangle {
     if root.show_fade_cover: Rectangle {
         width: 100%;
         height: 100%;
-        background: Palette.background;
+        background: ROGTheme.bg-primary;
         opacity: 0.9;
         TouchArea {
             height: 100%;

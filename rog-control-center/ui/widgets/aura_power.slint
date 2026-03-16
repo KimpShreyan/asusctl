@@ -1,12 +1,12 @@
-import { Palette, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 import { SystemToggleVert, SystemDropdown } from "common.slint";
 import { PowerZones } from "../types/aura_types.slint";
 
 export component AuraPowerGroup inherits Rectangle {
     min-width: row.min-width;
-    border-radius: 20px;
-    background: Palette.alternate-background;
-    opacity: 0.9;
+    border-radius: ROGTheme.radius-lg;
+    background: ROGTheme.bg-surface;
     in-out property <string> group-title;
     in-out property <bool> boot_checked;
     in-out property <bool> awake_checked;
@@ -19,8 +19,9 @@ export component AuraPowerGroup inherits Rectangle {
     VerticalBox {
         spacing: 10px;
         Text {
-            font-size: 18px;
-            color: Palette.alternate-foreground;
+            font-size: ROGTheme.font-heading;
+            font-weight: ROGTheme.weight-bold;
+            color: ROGTheme.text-primary;
             horizontal-alignment: TextHorizontalAlignment.center;
             text <=> root.group-title;
         }
@@ -72,9 +73,8 @@ export component AuraPowerGroup inherits Rectangle {
 
 export component AuraPowerGroupOld inherits Rectangle {
     min-width: row.min-width;
-    border-radius: 20px;
-    background: Palette.alternate-background;
-    opacity: 0.9;
+    border-radius: ROGTheme.radius-lg;
+    background: ROGTheme.bg-surface;
     in-out property <int> current_zone;
     in-out property <[int]> zones;
     in-out property <[string]> zone_strings;
@@ -89,8 +89,9 @@ export component AuraPowerGroupOld inherits Rectangle {
     VerticalBox {
         spacing: 10px;
         Text {
-            font-size: 18px;
-            color: Palette.alternate-foreground;
+            font-size: ROGTheme.font-heading;
+            font-weight: ROGTheme.weight-bold;
+            color: ROGTheme.text-primary;
             horizontal-alignment: TextHorizontalAlignment.center;
             text <=> root.group-title;
         }

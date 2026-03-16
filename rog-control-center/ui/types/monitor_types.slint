@@ -1,0 +1,27 @@
+// Dashboard data types for system monitoring
+
+export struct MonitorEntry {
+    label: string,
+    value: string,
+    bar-percent: float,
+    show-bar: bool,
+}
+
+export struct ProductInfo {
+    product-name: string,
+    cpu-name: string,
+    gpu-name: string,
+    ram-info: string,
+    bios-version: string,
+}
+
+export struct FanModeEntry {
+    label: string,
+    active: bool,
+}
+
+export struct SideBarEntry {
+    label: string,
+    section: string,
+    available: bool,
+}

@@ -1,0 +1,78 @@
+// ROG Control Center — Design Token System
+// Matches ASUS Armoury Crate dark gaming aesthetic
+
+export global ROGTheme {
+    // ── Background hierarchy ──
+    out property <color> bg-primary: #0d0d0d;
+    out property <color> bg-secondary: #1a1a1a;
+    out property <brush> bg-surface: rgba(30, 30, 30, 0.85);
+    out property <brush> bg-elevated: rgba(40, 40, 40, 0.9);
+    out property <color> bg-hover: rgba(255, 255, 255, 0.05);
+
+    // ── Accent ──
+    out property <color> accent: #FF0032;
+    out property <color> accent-dim: rgba(255, 0, 50, 0.3);
+    out property <color> accent-glow: rgba(255, 0, 50, 0.15);
+
+    // ── Text ──
+    out property <color> text-primary: #FFFFFF;
+    out property <color> text-secondary: #B0B0B0;
+    out property <color> text-disabled: #555555;
+
+    // ── Borders ──
+    out property <color> border-default: rgba(255, 255, 255, 0.08);
+    out property <color> border-glow: rgba(255, 0, 50, 0.2);
+
+    // ── Monitor bar colors (Armoury Crate style) ──
+    out property <color> monitor-freq: #2563EB;
+    out property <color> monitor-freq-gpu: #22C55E;
+    out property <color> monitor-temp: #FF4444;
+    out property <color> monitor-temp-pkg: #FF69B4;
+    out property <color> monitor-usage: #4CAF50;
+    out property <color> monitor-fan: #FFB300;
+    out property <color> monitor-voltage: #9C27B0;
+
+    // ── Status ──
+    out property <color> status-error: #FF4444;
+    out property <color> status-warning: #FFB300;
+    out property <color> status-success: #4CAF50;
+
+    // ── Sidebar ──
+    out property <length> sidebar-width: 200px;
+    out property <color> sidebar-section-text: rgba(180, 180, 180, 0.6);
+    out property <length> sidebar-section-font: 11px;
+
+    // ── Spacing scale (4px base) ──
+    out property <length> spacing-xs: 4px;
+    out property <length> spacing-sm: 8px;
+    out property <length> spacing-md: 12px;
+    out property <length> spacing-lg: 16px;
+    out property <length> spacing-xl: 24px;
+    out property <length> spacing-2xl: 32px;
+
+    // ── Border radius ──
+    out property <length> radius-sm: 6px;
+    out property <length> radius-md: 8px;
+    out property <length> radius-lg: 12px;
+
+    // ── Font sizes ──
+    out property <length> font-body: 14px;
+    out property <length> font-label: 13px;
+    out property <length> font-heading: 18px;
+    out property <length> font-title: 22px;
+    out property <length> font-small: 11px;
+
+    // ── Font weights ──
+    out property <int> weight-regular: 400;
+    out property <int> weight-medium: 500;
+    out property <int> weight-bold: 700;
+
+    // ── Animation durations ──
+    out property <duration> anim-fast: 150ms;
+    out property <duration> anim-normal: 200ms;
+    out property <duration> anim-slow: 300ms;
+
+    // ── Glow / shadow ──
+    out property <length> glow-blur: 12px;
+    out property <length> glow-blur-strong: 20px;
+}

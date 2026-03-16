@@ -1,6 +1,7 @@
 import { SystemDropdown, RogItem, SystemToggle, SystemToggleVert } from "../widgets/common.slint";
-import { Palette, Button, ComboBox, VerticalBox, GroupBox } from "std-widgets.slint";
+import { Button, ComboBox, VerticalBox, GroupBox } from "std-widgets.slint";
 import { StyleMetrics, Slider, HorizontalBox, TextEdit, SpinBox, LineEdit, ScrollView } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
 import { ColourSlider } from "../widgets/colour_picker.slint";
 import { AuraPageData, AuraDevType, PowerZones, LaptopAuraPower, AuraEffect } from "../types/aura_types.slint";
 import { AuraPowerGroup, AuraPowerGroupOld } from "../widgets/aura_power.slint";
@@ -192,7 +193,7 @@ export component PageAura inherits Rectangle {
         }
 
         if root.show_fade_cover: Rectangle {
-            background: Palette.background;
+            background: ROGTheme.bg-primary;
             opacity: 0.8;
             TouchArea {
                 height: 100%;

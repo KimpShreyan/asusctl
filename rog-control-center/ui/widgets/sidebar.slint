@@ -1,48 +1,72 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: MIT
+// ROG Control Center — Sidebar Navigation
+// Armoury Crate style: grouped sections, red active indicator
 
-import { Palette, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { ROGTheme } from "../theme.slint";
+import { SideBarEntry } from "../types/monitor_types.slint";
+export { SideBarEntry }
+
+component SideBarSectionHeader inherits Rectangle {
+    in property <string> text;
+    height: 28px;
+    background: transparent;
+
+    HorizontalLayout {
+        padding-left: ROGTheme.spacing-lg;
+        padding-top: ROGTheme.spacing-sm;
+
+        Text {
+            color: ROGTheme.sidebar-section-text;
+            font-size: ROGTheme.sidebar-section-font;
+            font-weight: ROGTheme.weight-medium;
+            text: root.text;
+            vertical-alignment: center;
+            letter-spacing: 0.5px;
+        }
+    }
+}
 
 component SideBarItem inherits Rectangle {
-    padding: 10px;
     in property <bool> selected;
     in property <bool> has-focus;
     in-out property <string> text <=> label.text;
     callback clicked <=> touch.clicked;
-    min-height: self.visible ? l.preferred-height + 10px : 0px;
-    // min-width: self.visible ? l.preferred-width + 10px : 0px;
-    states [
-        pressed when touch.pressed: {
-            state.opacity: 0.8;
-        }
-        hover when touch.has-hover: {
-            state.opacity: 0.6;
-        }
-        selected when root.selected: {
-            state.opacity: 1;
-        }
-        focused when root.has-focus: {
-            state.opacity: 0.8;
-        }
-    ]
-    state := Rectangle {
-        opacity: 0;
-        border-width: 2px;
-        border-radius: 10px;
-        border-color: Palette.accent-background;
-        background: Palette.alternate-background;
-        animate opacity { duration: 150ms; }
-        animate border-width { duration: 150ms; }
-        height: l.preferred-height;
+
+    min-height: self.visible ? 36px : 0px;
+    background: transparent;
+
+    // Active left indicator (3px red bar)
+    Rectangle {
+        x: 0px;
+        y: (parent.height - 20px) / 2;
+        width: 3px;
+        height: 20px;
+        border-radius: 1px;
+        background: ROGTheme.accent;
+        opacity: root.selected ? 1.0 : 0.0;
+        animate opacity { duration: ROGTheme.anim-normal; }
     }
 
-    l := HorizontalBox {
-        y: (parent.height - self.height) / 2;
-        spacing: 0px;
+    // Hover background
+    state := Rectangle {
+        x: 3px;
+        width: parent.width - 3px;
+        height: parent.height;
+        background: ROGTheme.bg-hover;
+        border-radius: ROGTheme.radius-sm;
+        opacity: 0;
+        animate opacity { duration: ROGTheme.anim-fast; }
+    }
+
+    HorizontalLayout {
+        padding-left: ROGTheme.spacing-lg;
+        padding-right: ROGTheme.spacing-sm;
+
         label := Text {
-            color: Palette.foreground;
+            color: root.selected ? ROGTheme.accent : ROGTheme.text-secondary;
             vertical-alignment: center;
-            font-size: 14px;
+            font-size: ROGTheme.font-body;
+            font-weight: root.selected ? ROGTheme.weight-medium : ROGTheme.weight-regular;
+            animate color { duration: ROGTheme.anim-normal; }
         }
     }
 
@@ -50,25 +74,46 @@ component SideBarItem inherits Rectangle {
         width: 100%;
         height: 100%;
     }
+
+    states [
+        pressed when touch.pressed: {
+            state.opacity: 0.8;
+        }
+        hover when touch.has-hover: {
+            state.opacity: 0.6;
+            label.color: ROGTheme.text-primary;
+        }
+        selected when root.selected: {
+            state.opacity: 0.0;
+        }
+        focused when root.has-focus: {
+            state.opacity: 0.6;
+        }
+    ]
 }
 
 export component SideBar inherits Rectangle {
-    in property <[string]> model: [];
-    in property <[bool]> available: [];
-    in property <string> title <=> label.text;
+    in property <[SideBarEntry]> entries: [];
+    in property <string> title <=> title-text.text;
     out property <int> current-item: 0;
     out property <int> current-focused: fs.has-focus ? fs.focused-tab : -1;
 
-    // The currently focused tab
-    width: 160px;
+    width: ROGTheme.sidebar-width;
     forward-focus: fs;
     accessible-role: tab;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+
+    // Sidebar background
     Rectangle {
-        border-width: 2px;
-        border-color: Palette.accent-background;
-        border-radius: 0px;
-        background: Palette.background.darker(0.2);
+        background: ROGTheme.bg-secondary;
+        // Right edge border
+        Rectangle {
+            x: parent.width - 1px;
+            width: 1px;
+            height: parent.height;
+            background: ROGTheme.border-default;
+        }
+
         fs := FocusScope {
             key-pressed(event) => {
                 if (event.text == "\n") {
@@ -76,11 +121,11 @@ export component SideBar inherits Rectangle {
                     return accept;
                 }
                 if (event.text == Key.UpArrow) {
-                    self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                    self.focused-tab = Math.max(self.focused-tab - 1, 0);
                     return accept;
                 }
                 if (event.text == Key.DownArrow) {
-                    self.focused-tab = Math.min(self.focused-tab + 1, root.model.length - 1);
+                    self.focused-tab = Math.min(self.focused-tab + 1, root.entries.length - 1);
                     return accept;
                 }
                 return reject;
@@ -95,40 +140,71 @@ export component SideBar inherits Rectangle {
             property <int> focused-tab: 0;
             x: 0;
             width: 0;
-            // Do not react on clicks
         }
     }
 
-    VerticalBox {
-        spacing: 4px;
+    VerticalLayout {
         alignment: start;
-        label := Text {
-            font-size: 16px;
-            horizontal-alignment: center;
+        spacing: 0px;
+
+        // Title area
+        Rectangle {
+            height: 48px;
+            HorizontalLayout {
+                padding-left: ROGTheme.spacing-lg;
+                alignment: start;
+
+                title-text := Text {
+                    font-size: ROGTheme.font-heading;
+                    font-weight: ROGTheme.weight-bold;
+                    color: ROGTheme.text-primary;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Bottom glow line
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                background: ROGTheme.border-default;
+            }
         }
 
-        navigation := VerticalLayout {
-            spacing: -6px;
+        // Spacer
+        Rectangle { height: ROGTheme.spacing-sm; }
+
+        // Navigation items with section headers
+        VerticalLayout {
+            spacing: 2px;
             alignment: start;
             vertical-stretch: 0;
-            for item[index] in root.model: SideBarItem {
-                visible: root.available[index];
-                clicked => {
-                    root.current-item = index;
+
+            for entry[index] in root.entries: VerticalLayout {
+                spacing: 0px;
+                visible: entry.available;
+
+                // Section header (shown when entry has a non-empty section)
+                if entry.section != "": SideBarSectionHeader {
+                    text: entry.section;
                 }
-                has-focus: index == root.current-focused;
-                text: item;
-                selected: index == root.current-item;
+
+                SideBarItem {
+                    clicked => {
+                        root.current-item = index;
+                    }
+                    has-focus: index == root.current-focused;
+                    text: entry.label;
+                    selected: index == root.current-item;
+                }
             }
         }
 
+        // Push remaining content to bottom
+        Rectangle { vertical-stretch: 1; }
+
+        // Bottom slot for Quit button etc.
         VerticalLayout {
-            bottom := VerticalBox {
-                padding-left: 0px;
-                padding-top: 0px;
-                padding-bottom: 0px;
-                @children
-            }
+            @children
         }
     }
 }
