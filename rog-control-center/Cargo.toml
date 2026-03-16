@@ -30,6 +30,7 @@ rog_profiles = { path = "../rog-profiles" }
 rog_platform = { path = "../rog-platform" }
 supergfxctl = { git = "https://gitlab.com/asus-linux/supergfxctl.git", default-features = false }
 dmi_id = { path = "../dmi-id" }
+libc = "0.2"
 
 gumdrop.workspace = true
 log.workspace = true

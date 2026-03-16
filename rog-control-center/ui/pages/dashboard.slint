@@ -16,18 +16,21 @@ export global DashboardPageData {
         bios-version: "",
     };
 
-    in-out property <[MonitorEntry]> frequency-entries: [];
-    in-out property <[MonitorEntry]> temperature-entries: [];
-    in-out property <[MonitorEntry]> usage-entries: [];
+    // Device-centric monitoring (matches Armoury Crate layout)
+    in-out property <[MonitorEntry]> cpu-entries: [];
+    in-out property <[MonitorEntry]> gpu-entries: [];
     in-out property <[MonitorEntry]> fan-entries: [];
-    in-out property <[MonitorEntry]> voltage-entries: [];
+    in-out property <[MonitorEntry]> storage-entries: [];
 
+    // GPU may not be present (Intel-only laptops)
+    in-out property <bool> gpu-available: false;
+
+    // Operation mode (Silence / Performance / Turbo)
     in-out property <int> active-fan-mode: 1;
     in-out property <[FanModeEntry]> fan-modes: [
-        { label: "Silent", active: false },
-        { label: "Standard", active: true },
+        { label: "Silence", active: false },
+        { label: "Performance", active: true },
         { label: "Turbo", active: false },
-        { label: "Full Speed", active: false },
     ];
 
     callback cb-set-fan-mode(int);
@@ -69,13 +72,13 @@ component MonitorRow inherits Rectangle {
     in property <string> value;
     in property <float> bar-percent: 0.0;
     in property <bool> show-bar: false;
-    in property <color> bar-color: ROGTheme.monitor-freq;
+    in property <color> bar-color: ROGTheme.monitor-bar;
 
-    height: show-bar ? 28px : 24px;
+    height: show-bar ? 32px : 24px;
     background: transparent;
 
     VerticalLayout {
-        spacing: 0px;
+        spacing: 2px;
 
         HorizontalLayout {
             padding-left: 0px;
@@ -99,11 +102,10 @@ component MonitorRow inherits Rectangle {
             }
         }
 
-        // Colored progress bar
         if root.show-bar: Rectangle {
-            height: 3px;
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 1px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
 
             Rectangle {
                 x: 0px;
@@ -111,59 +113,117 @@ component MonitorRow inherits Rectangle {
                 height: parent.height;
                 width: parent.width * Math.max(0.0, Math.min(1.0, root.bar-percent));
                 background: root.bar-color;
-                border-radius: 1px;
+                border-radius: 2px;
             }
         }
     }
 }
 
-// ── Monitor table (Frequency, Temperature, etc.) ──
+// ── Device monitoring card (CPU, GPU, Fan, Storage) ──
 
-component MonitorTable inherits Rectangle {
+component DeviceCard inherits Rectangle {
     in property <string> title;
-    in property <color> bar-color: ROGTheme.monitor-freq;
     in property <[MonitorEntry]> entries;
-
-    background: transparent;
-
-    VerticalLayout {
-        spacing: ROGTheme.spacing-xs;
-
-        // Table header
-        Text {
-            text: root.title;
-            color: ROGTheme.text-primary;
-            font-size: 16px;
-            font-weight: ROGTheme.weight-bold;
-        }
-
-        // Data rows
-        for entry[idx] in root.entries: MonitorRow {
-            label: entry.label;
-            value: entry.value;
-            bar-percent: entry.bar-percent;
-            show-bar: entry.show-bar;
-            bar-color: root.bar-color;
-        }
-    }
-}
-
-// ── Product info card ──
-
-component ProductInfoCard inherits Rectangle {
-    in property <ProductInfo> info;
 
     background: ROGTheme.bg-surface;
     border-radius: ROGTheme.radius-lg;
     border-width: 1px;
     border-color: ROGTheme.border-default;
+    min-height: 120px;
 
     VerticalLayout {
-        padding: ROGTheme.spacing-xl;
-        spacing: ROGTheme.spacing-sm;
-        alignment: center;
+        padding: ROGTheme.spacing-lg;
+        spacing: ROGTheme.spacing-xs;
 
-        // Product name
+        // Category header: large bold title + decorative wave accent
+        HorizontalLayout {
+            height: 40px;
+            alignment: space-between;
+
+            Text {
+                text: root.title;
+                color: ROGTheme.text-primary;
+                font-size: ROGTheme.font-category;
+                font-weight: ROGTheme.weight-bold;
+                vertical-alignment: center;
+            }
+
+            // Decorative triple-wave accent (Armoury Crate style)
+            HorizontalLayout {
+                alignment: end;
+                spacing: 3px;
+                vertical-stretch: 0;
+                width: 30px;
+
+                Rectangle {
+                    width: 6px;
+                    height: 12px;
+                    y: (parent.height - self.height) / 2;
+                    background: ROGTheme.text-disabled;
+                    border-radius: 2px;
+                }
+                Rectangle {
+                    width: 6px;
+                    height: 18px;
+                    y: (parent.height - self.height) / 2;
+                    background: ROGTheme.text-disabled;
+                    border-radius: 2px;
+                }
+                Rectangle {
+                    width: 6px;
+                    height: 12px;
+                    y: (parent.height - self.height) / 2;
+                    background: ROGTheme.text-disabled;
+                    border-radius: 2px;
+                }
+            }
+        }
+
+        // Monitor rows
+        for entry[idx] in root.entries: MonitorRow {
+            label: entry.label;
+            value: entry.value;
+            bar-percent: entry.bar-percent;
+            show-bar: entry.show-bar;
+            bar-color: ROGTheme.monitor-bar;
+        }
+    }
+}
+
+// ── Product info panel (left column) ──
+
+component ProductInfoPanel inherits Rectangle {
+    in property <ProductInfo> info;
+
+    background: transparent;
+
+    VerticalLayout {
+        spacing: ROGTheme.spacing-lg;
+        alignment: start;
+        padding: ROGTheme.spacing-lg;
+
+        // Laptop image placeholder (ROG logo)
+        Rectangle {
+            height: 220px;
+            background: ROGTheme.bg-surface;
+            border-radius: ROGTheme.radius-lg;
+            border-width: 1px;
+            border-color: ROGTheme.border-default;
+
+            VerticalLayout {
+                alignment: center;
+                padding: ROGTheme.spacing-xl;
+
+                Image {
+                    source: @image-url("../../data/rog-control-center.png");
+                    image-fit: contain;
+                    max-height: 160px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // Product name (large, bold)
         Text {
             text: info.product-name;
             color: ROGTheme.text-primary;
@@ -173,20 +233,20 @@ component ProductInfoCard inherits Rectangle {
             wrap: word-wrap;
         }
 
-        // CPU
+        // CPU info line
         if info.cpu-name != "": Text {
             text: info.cpu-name;
             color: ROGTheme.text-secondary;
-            font-size: ROGTheme.font-body;
+            font-size: ROGTheme.font-label;
             horizontal-alignment: center;
             wrap: word-wrap;
         }
 
-        // GPU
+        // GPU info line
         if info.gpu-name != "": Text {
             text: info.gpu-name;
             color: ROGTheme.text-secondary;
-            font-size: ROGTheme.font-body;
+            font-size: ROGTheme.font-label;
             horizontal-alignment: center;
             wrap: word-wrap;
         }
@@ -194,119 +254,67 @@ component ProductInfoCard inherits Rectangle {
         // RAM + BIOS line
         if info.ram-info != "": Text {
             text: info.bios-version != ""
-                ? info.ram-info + " | " + info.bios-version
+                ? info.ram-info + "  |  " + info.bios-version
                 : info.ram-info;
             color: ROGTheme.text-disabled;
-            font-size: ROGTheme.font-label;
+            font-size: ROGTheme.font-small;
             horizontal-alignment: center;
             wrap: word-wrap;
         }
     }
 }
 
-// ── System monitor panel (right side) ──
+// ── Operating mode button (icon-style) ──
 
-component SystemMonitorPanel inherits Rectangle {
-    in property <[MonitorEntry]> frequency-entries;
-    in property <[MonitorEntry]> temperature-entries;
-    in property <[MonitorEntry]> usage-entries;
-    in property <[MonitorEntry]> fan-entries;
-    in property <[MonitorEntry]> voltage-entries;
-
-    background: transparent;
-
-    VerticalLayout {
-        spacing: ROGTheme.spacing-lg;
-
-        // "System Monitor" header
-        SectionHeader { text: "System Monitor"; }
-
-        // Top row: Frequency + Temperature
-        HorizontalLayout {
-            spacing: ROGTheme.spacing-xl;
-
-            MonitorTable {
-                title: "Frequency";
-                bar-color: ROGTheme.monitor-freq;
-                entries: root.frequency-entries;
-            }
-
-            MonitorTable {
-                title: "Temperature";
-                bar-color: ROGTheme.monitor-temp;
-                entries: root.temperature-entries;
-            }
-        }
-
-        // Middle row: Usage + Fan + Voltage
-        HorizontalLayout {
-            spacing: ROGTheme.spacing-xl;
-
-            MonitorTable {
-                title: "Usage";
-                bar-color: ROGTheme.monitor-usage;
-                entries: root.usage-entries;
-            }
-
-            MonitorTable {
-                title: "Fan";
-                bar-color: ROGTheme.monitor-fan;
-                entries: root.fan-entries;
-            }
-
-            MonitorTable {
-                title: "Voltage";
-                bar-color: ROGTheme.monitor-voltage;
-                entries: root.voltage-entries;
-            }
-        }
-    }
-}
-
-// ── Fan mode button ──
-
-component FanModeButton inherits Rectangle {
+component OperatingModeButton inherits Rectangle {
     in property <string> label;
     in property <bool> active;
     callback clicked;
 
-    width: 120px;
-    height: 64px;
-    background: transparent;
+    width: 110px;
+    height: 72px;
+    background: active ? rgba(0, 212, 170, 0.1) : transparent;
     border-radius: ROGTheme.radius-md;
+    border-width: active ? 1px : 0px;
+    border-color: active ? ROGTheme.monitor-bar : transparent;
+
+    animate background { duration: ROGTheme.anim-normal; }
+    animate border-width { duration: ROGTheme.anim-normal; }
 
     VerticalLayout {
         alignment: center;
         spacing: ROGTheme.spacing-xs;
+        padding: ROGTheme.spacing-sm;
+
+        // Icon area — geometric indicator circle
+        Rectangle {
+            height: 28px;
+            width: 28px;
+            x: (parent.width - self.width) / 2;
+            border-radius: 14px;
+            background: root.active ? ROGTheme.monitor-bar : ROGTheme.text-disabled;
+            opacity: root.active ? 1.0 : 0.4;
+            animate background { duration: ROGTheme.anim-normal; }
+            animate opacity { duration: ROGTheme.anim-normal; }
+        }
 
         Text {
             text: root.label;
-            color: root.active ? ROGTheme.accent : ROGTheme.text-secondary;
-            font-size: ROGTheme.font-body;
-            font-weight: root.active ? ROGTheme.weight-medium : ROGTheme.weight-regular;
+            color: root.active ? ROGTheme.monitor-bar : ROGTheme.text-secondary;
+            font-size: ROGTheme.font-label;
+            font-weight: root.active ? ROGTheme.weight-bold : ROGTheme.weight-regular;
             horizontal-alignment: center;
             animate color { duration: ROGTheme.anim-normal; }
         }
-
-        // Active indicator line
-        Rectangle {
-            height: 2px;
-            width: parent.width * 0.6;
-            x: (parent.width - self.width) / 2;
-            background: ROGTheme.accent;
-            opacity: root.active ? 1.0 : 0.0;
-            border-radius: 1px;
-            animate opacity { duration: ROGTheme.anim-normal; }
-        }
     }
 
-    // Hover effect
+    // Hover overlay
     Rectangle {
         width: 100%;
         height: 100%;
         background: ROGTheme.bg-hover;
         border-radius: ROGTheme.radius-md;
-        opacity: touch.has-hover ? 0.6 : 0.0;
+        opacity: touch.has-hover && !root.active ? 0.6 : 0.0;
         animate opacity { duration: ROGTheme.anim-fast; }
     }
 
@@ -317,9 +325,9 @@ component FanModeButton inherits Rectangle {
     }
 }
 
-// ── Fan mode selector ──
+// ── Operating mode selector ──
 
-component FanModeSelector inherits Rectangle {
+component OperatingModeSelector inherits Rectangle {
     in property <[FanModeEntry]> modes;
     in-out property <int> active-mode;
     callback mode-selected(int);
@@ -333,13 +341,18 @@ component FanModeSelector inherits Rectangle {
         padding: ROGTheme.spacing-lg;
         spacing: ROGTheme.spacing-md;
 
-        SectionHeader { text: "Fan Mode"; }
+        HorizontalLayout {
+            height: 32px;
+            alignment: space-between;
+
+            SectionHeader { text: "Operating Mode"; }
+        }
 
         HorizontalLayout {
-            spacing: ROGTheme.spacing-sm;
+            spacing: ROGTheme.spacing-md;
             alignment: center;
 
-            for entry[idx] in root.modes: FanModeButton {
+            for entry[idx] in root.modes: OperatingModeButton {
                 label: entry.label;
                 active: idx == root.active-mode;
                 clicked => {
@@ -364,37 +377,74 @@ export component PageDashboard inherits Rectangle {
 
             // Page title
             Text {
-                text: @tr("Dashboard");
+                text: @tr("Home");
                 color: ROGTheme.text-primary;
                 font-size: ROGTheme.font-title;
                 font-weight: ROGTheme.weight-bold;
             }
 
-            // Main content: product info (left) + system monitor (right)
+            // Main content: product info (left) + systems monitor (right)
             HorizontalLayout {
                 spacing: ROGTheme.spacing-xl;
 
-                ProductInfoCard {
-                    min-width: 280px;
-                    max-width: 360px;
+                // Left column: Product info + laptop image
+                ProductInfoPanel {
                     info: DashboardPageData.product;
+                    min-width: 260px;
+                    max-width: 320px;
+                    horizontal-stretch: 0;
                 }
 
-                SystemMonitorPanel {
-                    frequency-entries: DashboardPageData.frequency-entries;
-                    temperature-entries: DashboardPageData.temperature-entries;
-                    usage-entries: DashboardPageData.usage-entries;
-                    fan-entries: DashboardPageData.fan-entries;
-                    voltage-entries: DashboardPageData.voltage-entries;
-                }
-            }
+                // Right column: Systems Monitor
+                VerticalLayout {
+                    spacing: ROGTheme.spacing-lg;
+                    horizontal-stretch: 1;
 
-            // Fan mode quick selector
-            FanModeSelector {
-                modes: DashboardPageData.fan-modes;
-                active-mode <=> DashboardPageData.active-fan-mode;
-                mode-selected(idx) => {
-                    DashboardPageData.cb-set-fan-mode(idx);
+                    // "Systems Monitor" header
+                    SectionHeader { text: "Systems Monitor"; }
+
+                    // Top row: CPU + GPU
+                    HorizontalLayout {
+                        spacing: ROGTheme.spacing-lg;
+
+                        DeviceCard {
+                            title: "CPU";
+                            entries: DashboardPageData.cpu-entries;
+                            horizontal-stretch: 1;
+                        }
+
+                        if DashboardPageData.gpu-available: DeviceCard {
+                            title: "GPU";
+                            entries: DashboardPageData.gpu-entries;
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                    // Bottom row: Fan + Storage
+                    HorizontalLayout {
+                        spacing: ROGTheme.spacing-lg;
+
+                        DeviceCard {
+                            title: "Fan";
+                            entries: DashboardPageData.fan-entries;
+                            horizontal-stretch: 1;
+                        }
+
+                        DeviceCard {
+                            title: "Storage";
+                            entries: DashboardPageData.storage-entries;
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                    // Operating Mode selector
+                    OperatingModeSelector {
+                        modes: DashboardPageData.fan-modes;
+                        active-mode <=> DashboardPageData.active-fan-mode;
+                        mode-selected(idx) => {
+                            DashboardPageData.cb-set-fan-mode(idx);
+                        }
+                    }
                 }
             }
         }

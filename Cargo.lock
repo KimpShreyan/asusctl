@@ -4579,6 +4579,7 @@ dependencies = [
  "gumdrop",
  "image",
  "ksni",
+ "libc",
  "log",
  "notify-rust",
  "rog_anime",

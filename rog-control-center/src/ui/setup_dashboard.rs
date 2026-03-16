@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use dmi_id::DMIID;
 use slint::{ComponentHandle, ModelRc, VecModel, Weak};
@@ -25,18 +25,23 @@ pub fn setup_dashboard_page(ui: &MainWindow) {
     let data = ui.global::<DashboardPageData>();
     data.set_product(product);
 
-    // Set initial fan modes
+    // Detect GPU availability
+    let hwmon_map = discover_hwmon_devices();
+    let has_gpu = hwmon_map.contains_key("amdgpu") || hwmon_map.contains_key("nvidia");
+    data.set_gpu_available(has_gpu);
+
+    // Operation mode (Silence / Performance / Turbo)
     let fan_modes = vec![
         FanModeEntry {
-            label: "Balanced".into(),
-            active: true,
-        },
-        FanModeEntry {
-            label: "Performance".into(),
+            label: "Silence".into(),
             active: false,
         },
         FanModeEntry {
-            label: "Quiet".into(),
+            label: "Performance".into(),
+            active: true,
+        },
+        FanModeEntry {
+            label: "Turbo".into(),
             active: false,
         },
     ];
@@ -44,7 +49,7 @@ pub fn setup_dashboard_page(ui: &MainWindow) {
 
     // Fan mode callback — will be wired to D-Bus in a future step
     data.on_cb_set_fan_mode(|idx| {
-        log::info!("Fan mode selected: {idx}");
+        log::info!("Operation mode selected: {idx}");
     });
 }
 
@@ -52,38 +57,300 @@ pub fn setup_dashboard_page(ui: &MainWindow) {
 pub fn setup_dashboard_monitoring(handle: Weak<MainWindow>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(2));
-        // Discover hwmon devices once
         let hwmon_map = discover_hwmon_devices();
+        let drm_device = find_gpu_drm_device(&hwmon_map);
 
-        // For CPU usage delta calculation
         let mut prev_cpu_stats: Option<(u64, u64)> = None;
+        let mut prev_rapl: Option<(u64, Instant)> = None;
 
         loop {
             interval.tick().await;
 
-            let freq = read_cpu_frequencies();
-            let temp = read_temperatures(&hwmon_map);
-            let (usage, new_cpu_stats) = read_usage_stats(prev_cpu_stats);
+            let (cpu, new_cpu_stats, new_rapl) =
+                build_cpu_entries(&hwmon_map, prev_cpu_stats, prev_rapl);
             prev_cpu_stats = Some(new_cpu_stats);
-            let fan = read_fan_speeds(&hwmon_map);
-            let voltage = read_voltages(&hwmon_map);
+            prev_rapl = new_rapl;
 
-            let handle_clone = handle.clone();
-            handle_clone
-                .upgrade_in_event_loop(move |ui| {
-                    let data = ui.global::<DashboardPageData>();
-                    data.set_frequency_entries(ModelRc::new(VecModel::from(freq)));
-                    data.set_temperature_entries(ModelRc::new(VecModel::from(temp)));
-                    data.set_usage_entries(ModelRc::new(VecModel::from(usage)));
-                    data.set_fan_entries(ModelRc::new(VecModel::from(fan)));
-                    data.set_voltage_entries(ModelRc::new(VecModel::from(voltage)));
-                })
-                .ok();
+            let gpu = build_gpu_entries(&hwmon_map, &drm_device);
+            let fan = build_fan_entries(&hwmon_map);
+            let storage = build_storage_entries();
+
+            let h = handle.clone();
+            h.upgrade_in_event_loop(move |ui| {
+                let data = ui.global::<DashboardPageData>();
+                data.set_cpu_entries(ModelRc::new(VecModel::from(cpu)));
+                data.set_gpu_entries(ModelRc::new(VecModel::from(gpu)));
+                data.set_fan_entries(ModelRc::new(VecModel::from(fan)));
+                data.set_storage_entries(ModelRc::new(VecModel::from(storage)));
+            })
+            .ok();
         }
     });
 }
 
-// ── Helper: read CPU model name ──
+// ═══════════════════════════════════════════════════════════════════
+// Device-centric composition functions
+// ═══════════════════════════════════════════════════════════════════
+
+/// Compose CPU monitoring entries: Frequency, Power, Memory, Temperature, Voltage.
+fn build_cpu_entries(
+    hwmon_map: &HashMap<String, String>,
+    prev_cpu: Option<(u64, u64)>,
+    prev_rapl: Option<(u64, Instant)>,
+) -> (Vec<MonitorEntry>, (u64, u64), Option<(u64, Instant)>) {
+    let mut entries = Vec::new();
+
+    // 1. CPU Frequency (average, progress bar)
+    let mut core_freqs = Vec::new();
+    for i in 0..128 {
+        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_cur_freq");
+        match fs::read_to_string(&path) {
+            Ok(s) => {
+                if let Ok(khz) = s.trim().parse::<u64>() {
+                    core_freqs.push(khz);
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    if !core_freqs.is_empty() {
+        let avg_mhz = core_freqs.iter().sum::<u64>() / core_freqs.len() as u64 / 1000;
+        let max_mhz = fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .map(|khz| khz / 1000)
+            .unwrap_or(6000);
+        entries.push(MonitorEntry {
+            label: "Frequency".into(),
+            value: format!("{avg_mhz} MHz").into(),
+            bar_percent: (avg_mhz as f32 / max_mhz as f32).min(1.0),
+            show_bar: true,
+        });
+    }
+
+    // 2. CPU Power (RAPL, progress bar)
+    let (watts, new_rapl) = read_cpu_power(prev_rapl);
+    if let Some(w) = watts {
+        entries.push(MonitorEntry {
+            label: "CPU Power".into(),
+            value: format!("{w:.1} W").into(),
+            bar_percent: (w as f32 / 65.0).min(1.0),
+            show_bar: true,
+        });
+    }
+
+    // 3. Memory Usage %
+    if let Some((percent, _used_gb, _total_gb)) = read_ram_usage() {
+        entries.push(MonitorEntry {
+            label: "Memory".into(),
+            value: format!("{percent} %").into(),
+            bar_percent: 0.0,
+            show_bar: false,
+        });
+    }
+
+    // 4. CPU Temperature
+    let cpu_hwmon = hwmon_map
+        .get("k10temp")
+        .or_else(|| hwmon_map.get("coretemp"));
+    if let Some(path) = cpu_hwmon {
+        if let Some(temp) = read_hwmon_temp(path, "temp1_input") {
+            entries.push(MonitorEntry {
+                label: "Temperature".into(),
+                value: format!("{temp} \u{00B0}C").into(),
+                bar_percent: 0.0,
+                show_bar: false,
+            });
+        }
+    }
+
+    // 5. CPU Voltage (from ASUS EC sensors if available)
+    for name in ["asus-ec-sensors", "asus_wmi_sensors"] {
+        if let Some(path) = hwmon_map.get(name) {
+            let full_path = format!("{path}/in0_input");
+            if let Ok(content) = fs::read_to_string(&full_path) {
+                if let Ok(mv) = content.trim().parse::<u64>() {
+                    let volts = mv as f64 / 1000.0;
+                    entries.push(MonitorEntry {
+                        label: "Voltage".into(),
+                        value: format!("{volts:.3} V").into(),
+                        bar_percent: 0.0,
+                        show_bar: false,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    // Track CPU usage delta (used for cpu_percent calculation)
+    let (_cpu_percent, total, idle) = read_cpu_usage(prev_cpu);
+
+    (entries, (total, idle), new_rapl)
+}
+
+/// Compose GPU monitoring entries: Frequency, Power, Memory, Mem Freq, Temp, Voltage.
+fn build_gpu_entries(
+    hwmon_map: &HashMap<String, String>,
+    drm_device: &Option<String>,
+) -> Vec<MonitorEntry> {
+    let mut entries = Vec::new();
+
+    // 1. GPU Frequency (progress bar)
+    if let Some(mhz) = read_gpu_frequency(hwmon_map) {
+        entries.push(MonitorEntry {
+            label: "Frequency".into(),
+            value: format!("{mhz} MHz").into(),
+            bar_percent: (mhz as f32 / 2500.0).min(1.0),
+            show_bar: true,
+        });
+    }
+
+    // 2. GPU Power (progress bar)
+    if let Some(watts) = read_gpu_power(hwmon_map) {
+        entries.push(MonitorEntry {
+            label: "GPU Power".into(),
+            value: format!("{watts:.1} W").into(),
+            bar_percent: (watts as f32 / 150.0).min(1.0),
+            show_bar: true,
+        });
+    }
+
+    // 3. VRAM Usage
+    if let Some(drm) = drm_device {
+        if let Some((used_mb, total_mb)) = read_gpu_vram(drm) {
+            let percent = if total_mb > 0 {
+                used_mb as f32 / total_mb as f32
+            } else {
+                0.0
+            };
+            entries.push(MonitorEntry {
+                label: "Memory".into(),
+                value: format!("{used_mb} / {total_mb} MB").into(),
+                bar_percent: percent,
+                show_bar: false,
+            });
+        }
+
+        // 4. GPU Memory Frequency
+        if let Some(mhz) = read_gpu_mem_frequency(drm) {
+            entries.push(MonitorEntry {
+                label: "Memory Frequency".into(),
+                value: format!("{mhz} MHz").into(),
+                bar_percent: 0.0,
+                show_bar: false,
+            });
+        }
+    }
+
+    // 5. GPU Temperature
+    let gpu_hwmon = hwmon_map.get("amdgpu").or_else(|| hwmon_map.get("nvidia"));
+    if let Some(path) = gpu_hwmon {
+        if let Some(temp) = read_hwmon_temp(path, "temp1_input") {
+            entries.push(MonitorEntry {
+                label: "Temperature".into(),
+                value: format!("{temp} \u{00B0}C").into(),
+                bar_percent: 0.0,
+                show_bar: false,
+            });
+        }
+    }
+
+    // 6. GPU Voltage
+    if let Some(mv) = read_gpu_voltage(hwmon_map) {
+        entries.push(MonitorEntry {
+            label: "Voltage".into(),
+            value: format!("{mv} mV").into(),
+            bar_percent: 0.0,
+            show_bar: false,
+        });
+    }
+
+    entries
+}
+
+/// Compose Fan monitoring entries: CPU Fan, GPU Fan (all with progress bars).
+fn build_fan_entries(hwmon_map: &HashMap<String, String>) -> Vec<MonitorEntry> {
+    let mut entries = Vec::new();
+
+    // Try ASUS-specific fan sensors first
+    for name in ["asus-nb-wmi", "asus_wmi_sensors", "asus-ec-sensors"] {
+        if let Some(path) = hwmon_map.get(name) {
+            for i in 1..=8 {
+                let input = format!("{path}/fan{i}_input");
+                let label_file = format!("{path}/fan{i}_label");
+                if let Ok(content) = fs::read_to_string(&input) {
+                    if let Ok(rpm) = content.trim().parse::<u64>() {
+                        let label = fs::read_to_string(&label_file)
+                            .map(|s| s.trim().to_string())
+                            .unwrap_or_else(|_| format!("Fan {i}"));
+                        entries.push(MonitorEntry {
+                            label: label.into(),
+                            value: format!("{rpm} RPM").into(),
+                            bar_percent: (rpm as f32 / 5000.0).min(1.0),
+                            show_bar: true,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: generic hwmon fans
+    if entries.is_empty() {
+        for (_name, path) in hwmon_map {
+            for i in 1..=4 {
+                let input = format!("{path}/fan{i}_input");
+                if let Ok(content) = fs::read_to_string(&input) {
+                    if let Ok(rpm) = content.trim().parse::<u64>() {
+                        let label = if i == 1 { "CPU Fan" } else { "GPU Fan" };
+                        entries.push(MonitorEntry {
+                            label: label.into(),
+                            value: format!("{rpm} RPM").into(),
+                            bar_percent: (rpm as f32 / 5000.0).min(1.0),
+                            show_bar: true,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    entries
+}
+
+/// Compose Storage monitoring entries: Disk usage + RAM (all with progress bars).
+fn build_storage_entries() -> Vec<MonitorEntry> {
+    let mut entries = Vec::new();
+
+    // 1. Root filesystem
+    if let Some((used_gb, total_gb, percent)) = read_disk_usage() {
+        entries.push(MonitorEntry {
+            label: "Storage".into(),
+            value: format!("{used_gb:.1} / {total_gb:.1} GB").into(),
+            bar_percent: percent as f32 / 100.0,
+            show_bar: true,
+        });
+    }
+
+    // 2. RAM
+    if let Some((percent, used_gb, total_gb)) = read_ram_usage() {
+        entries.push(MonitorEntry {
+            label: "RAM".into(),
+            value: format!("{used_gb:.1} / {total_gb:.1} GB").into(),
+            bar_percent: percent as f32 / 100.0,
+            show_bar: true,
+        });
+    }
+
+    entries
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Low-level data readers
+// ═══════════════════════════════════════════════════════════════════
+
+// ── CPU info ──
 
 fn read_cpu_name() -> String {
     fs::read_to_string("/proc/cpuinfo")
@@ -98,10 +365,71 @@ fn read_cpu_name() -> String {
         .unwrap_or_default()
 }
 
-// ── Helper: read GPU name from DRM sysfs ──
+fn read_cpu_usage(prev: Option<(u64, u64)>) -> (u64, u64, u64) {
+    let content = match fs::read_to_string("/proc/stat") {
+        Ok(c) => c,
+        Err(_) => return (0, 0, 0),
+    };
+
+    let first_line = match content.lines().next() {
+        Some(l) if l.starts_with("cpu ") => l,
+        _ => return (0, 0, 0),
+    };
+
+    let vals: Vec<u64> = first_line
+        .split_whitespace()
+        .skip(1)
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    if vals.len() < 4 {
+        return (0, 0, 0);
+    }
+
+    let total: u64 = vals.iter().sum();
+    let idle = vals[3];
+
+    let percent = if let Some((prev_total, prev_idle)) = prev {
+        let d_total = total.saturating_sub(prev_total);
+        let d_idle = idle.saturating_sub(prev_idle);
+        if d_total > 0 {
+            ((d_total - d_idle) * 100 / d_total).min(100)
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
+    (percent, total, idle)
+}
+
+/// Read CPU package power from RAPL energy_uj (delta-based).
+fn read_cpu_power(prev: Option<(u64, Instant)>) -> (Option<f64>, Option<(u64, Instant)>) {
+    let energy = fs::read_to_string("/sys/class/powercap/intel-rapl:0/energy_uj")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok());
+
+    let now = Instant::now();
+    match (energy, prev) {
+        (Some(curr_uj), Some((prev_uj, prev_time))) => {
+            let dt = now.duration_since(prev_time).as_secs_f64();
+            if dt > 0.1 {
+                let delta = curr_uj.wrapping_sub(prev_uj);
+                let watts = (delta as f64) / 1_000_000.0 / dt;
+                (Some(watts), Some((curr_uj, now)))
+            } else {
+                (None, Some((curr_uj, now)))
+            }
+        }
+        (Some(curr_uj), None) => (None, Some((curr_uj, now))),
+        _ => (None, None),
+    }
+}
+
+// ── GPU info ──
 
 fn read_gpu_name() -> String {
-    // Try reading from DRM device sysfs
     let drm_path = "/sys/class/drm";
     if let Ok(entries) = fs::read_dir(drm_path) {
         for entry in entries.flatten() {
@@ -129,7 +457,92 @@ fn read_gpu_name() -> String {
     String::new()
 }
 
-// ── Helper: read total RAM ──
+/// Find the DRM device path for the discrete GPU (amdgpu or nvidia).
+fn find_gpu_drm_device(hwmon_map: &HashMap<String, String>) -> Option<String> {
+    let gpu_hwmon = hwmon_map.get("amdgpu").or_else(|| hwmon_map.get("nvidia"))?;
+    let hwmon_device = fs::canonicalize(format!("{gpu_hwmon}/device")).ok()?;
+
+    for entry in fs::read_dir("/sys/class/drm").ok()?.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with("card") && !name.contains('-') {
+            if let Ok(drm_device) = fs::canonicalize(entry.path().join("device")) {
+                if drm_device == hwmon_device {
+                    return Some(drm_device.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Read GPU core frequency from amdgpu hwmon freq1_input (Hz -> MHz).
+fn read_gpu_frequency(hwmon_map: &HashMap<String, String>) -> Option<u64> {
+    let path = hwmon_map.get("amdgpu")?;
+    let hz = fs::read_to_string(format!("{path}/freq1_input"))
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()?;
+    Some(hz / 1_000_000)
+}
+
+/// Read GPU power from amdgpu hwmon power1_average or power1_input (microwatts -> W).
+fn read_gpu_power(hwmon_map: &HashMap<String, String>) -> Option<f64> {
+    let path = hwmon_map.get("amdgpu")?;
+    let uw = fs::read_to_string(format!("{path}/power1_average"))
+        .or_else(|_| fs::read_to_string(format!("{path}/power1_input")))
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()?;
+    Some(uw as f64 / 1_000_000.0)
+}
+
+/// Read GPU VRAM usage from DRM sysfs (bytes -> MB).
+fn read_gpu_vram(drm_device: &str) -> Option<(u64, u64)> {
+    let used = fs::read_to_string(format!("{drm_device}/mem_info_vram_used"))
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()?
+        / (1024 * 1024);
+    let total = fs::read_to_string(format!("{drm_device}/mem_info_vram_total"))
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()?
+        / (1024 * 1024);
+    Some((used, total))
+}
+
+/// Read GPU memory frequency from pp_dpm_mclk (active line ends with *).
+fn read_gpu_mem_frequency(drm_device: &str) -> Option<u64> {
+    let content = fs::read_to_string(format!("{drm_device}/pp_dpm_mclk")).ok()?;
+    for line in content.lines() {
+        if line.trim_end().ends_with('*') {
+            return line
+                .split_whitespace()
+                .nth(1)?
+                .trim_end_matches("Mhz")
+                .trim_end_matches("MHz")
+                .parse::<u64>()
+                .ok();
+        }
+    }
+    None
+}
+
+/// Read GPU voltage from amdgpu hwmon in0_input (millivolts).
+fn read_gpu_voltage(hwmon_map: &HashMap<String, String>) -> Option<u64> {
+    let path = hwmon_map.get("amdgpu")?;
+    fs::read_to_string(format!("{path}/in0_input"))
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()
+}
+
+// ── RAM info ──
 
 fn read_ram_total() -> String {
     fs::read_to_string("/proc/meminfo")
@@ -146,213 +559,6 @@ fn read_ram_total() -> String {
                 })
         })
         .unwrap_or_default()
-}
-
-// ── Hwmon device discovery ──
-
-fn discover_hwmon_devices() -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    let hwmon_dir = "/sys/class/hwmon";
-    if let Ok(entries) = fs::read_dir(hwmon_dir) {
-        for entry in entries.flatten() {
-            let name_path = entry.path().join("name");
-            if let Ok(name) = fs::read_to_string(&name_path) {
-                let name = name.trim().to_string();
-                let path = entry.path().to_string_lossy().to_string();
-                map.insert(name, path);
-            }
-        }
-    }
-    map
-}
-
-// ── CPU frequencies ──
-
-fn read_cpu_frequencies() -> Vec<MonitorEntry> {
-    let mut entries = Vec::new();
-    let cpu_dir = "/sys/devices/system/cpu";
-
-    // Read per-core frequencies
-    let mut core_freqs = Vec::new();
-    for i in 0..32 {
-        let path = format!("{cpu_dir}/cpu{i}/cpufreq/scaling_cur_freq");
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(khz) = content.trim().parse::<u64>() {
-                core_freqs.push(khz);
-            }
-        } else {
-            break;
-        }
-    }
-
-    if !core_freqs.is_empty() {
-        // Average CPU frequency
-        let avg_mhz = core_freqs.iter().sum::<u64>() / core_freqs.len() as u64 / 1000;
-        let max_mhz = *core_freqs.iter().max().unwrap_or(&0) / 1000;
-        entries.push(MonitorEntry {
-            label: "CPU".into(),
-            value: format!("{avg_mhz} MHz").into(),
-            bar_percent: (avg_mhz as f32 / 6000.0).min(1.0), // assume 6GHz max
-            show_bar: true,
-        });
-
-        // Show individual cores (up to 8)
-        for (i, freq) in core_freqs.iter().take(8).enumerate() {
-            let mhz = freq / 1000;
-            entries.push(MonitorEntry {
-                label: format!("CPU Core {i}").into(),
-                value: format!("{mhz} MHz").into(),
-                bar_percent: (mhz as f32 / max_mhz.max(1) as f32).min(1.0),
-                show_bar: false,
-            });
-        }
-    }
-
-    entries
-}
-
-// ── Temperatures ──
-
-fn read_temperatures(hwmon_map: &HashMap<String, String>) -> Vec<MonitorEntry> {
-    let mut entries = Vec::new();
-
-    // CPU temperature - try k10temp (AMD) or coretemp (Intel)
-    let cpu_hwmon = hwmon_map
-        .get("k10temp")
-        .or_else(|| hwmon_map.get("coretemp"));
-
-    if let Some(path) = cpu_hwmon {
-        if let Some(temp) = read_hwmon_temp(path, "temp1_input") {
-            entries.push(MonitorEntry {
-                label: "CPU".into(),
-                value: format!("{temp} \u{00B0}C").into(),
-                bar_percent: (temp as f32 / 105.0).min(1.0),
-                show_bar: true,
-            });
-        }
-        // CPU Package / Tctl
-        if let Some(temp) = read_hwmon_temp(path, "temp2_input") {
-            entries.push(MonitorEntry {
-                label: "CPU Package".into(),
-                value: format!("{temp} \u{00B0}C").into(),
-                bar_percent: (temp as f32 / 105.0).min(1.0),
-                show_bar: true,
-            });
-        }
-    }
-
-    // GPU temperature
-    let gpu_hwmon = hwmon_map.get("amdgpu").or_else(|| hwmon_map.get("nvidia"));
-    if let Some(path) = gpu_hwmon {
-        if let Some(temp) = read_hwmon_temp(path, "temp1_input") {
-            entries.push(MonitorEntry {
-                label: "GPU".into(),
-                value: format!("{temp} \u{00B0}C").into(),
-                bar_percent: (temp as f32 / 105.0).min(1.0),
-                show_bar: false,
-            });
-        }
-    }
-
-    // ASUS-specific sensors
-    for name in ["asus-ec-sensors", "asus_wmi_sensors", "asus-isa-sensors"] {
-        if let Some(path) = hwmon_map.get(name) {
-            // Try reading available temperature inputs
-            for i in 1..=6 {
-                let input = format!("temp{i}_input");
-                let label_file = format!("temp{i}_label");
-                if let Some(temp) = read_hwmon_temp(path, &input) {
-                    let label = fs::read_to_string(format!("{path}/{label_file}"))
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_else(|_| format!("Sensor {i}"));
-                    entries.push(MonitorEntry {
-                        label: label.into(),
-                        value: format!("{temp} \u{00B0}C").into(),
-                        bar_percent: (temp as f32 / 105.0).min(1.0),
-                        show_bar: false,
-                    });
-                }
-            }
-        }
-    }
-
-    entries
-}
-
-fn read_hwmon_temp(hwmon_path: &str, file: &str) -> Option<u64> {
-    let path = format!("{hwmon_path}/{file}");
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| s.trim().parse::<u64>().ok())
-        .map(|millideg| millideg / 1000)
-}
-
-// ── CPU & RAM usage ──
-
-fn read_usage_stats(
-    prev_cpu: Option<(u64, u64)>,
-) -> (Vec<MonitorEntry>, (u64, u64)) {
-    let mut entries = Vec::new();
-
-    // CPU usage from /proc/stat
-    let (cpu_percent, total, idle) = read_cpu_usage(prev_cpu);
-    entries.push(MonitorEntry {
-        label: "CPU (Average) Usage".into(),
-        value: format!("{cpu_percent} %").into(),
-        bar_percent: cpu_percent as f32 / 100.0,
-        show_bar: false,
-    });
-
-    // RAM usage from /proc/meminfo
-    if let Some((used_percent, used_gb, total_gb)) = read_ram_usage() {
-        entries.push(MonitorEntry {
-            label: "RAM Usage".into(),
-            value: format!("{used_gb:.1} / {total_gb:.1} GB ({used_percent}%)").into(),
-            bar_percent: used_percent as f32 / 100.0,
-            show_bar: false,
-        });
-    }
-
-    (entries, (total, idle))
-}
-
-fn read_cpu_usage(prev: Option<(u64, u64)>) -> (u64, u64, u64) {
-    let content = match fs::read_to_string("/proc/stat") {
-        Ok(c) => c,
-        Err(_) => return (0, 0, 0),
-    };
-
-    let first_line = match content.lines().next() {
-        Some(l) if l.starts_with("cpu ") => l,
-        _ => return (0, 0, 0),
-    };
-
-    let vals: Vec<u64> = first_line
-        .split_whitespace()
-        .skip(1)
-        .filter_map(|s| s.parse().ok())
-        .collect();
-
-    if vals.len() < 4 {
-        return (0, 0, 0);
-    }
-
-    let total: u64 = vals.iter().sum();
-    let idle = vals[3]; // idle is the 4th value
-
-    let percent = if let Some((prev_total, prev_idle)) = prev {
-        let d_total = total.saturating_sub(prev_total);
-        let d_idle = idle.saturating_sub(prev_idle);
-        if d_total > 0 {
-            ((d_total - d_idle) * 100 / d_total).min(100)
-        } else {
-            0
-        }
-    } else {
-        0
-    };
-
-    (percent, total, idle)
 }
 
 fn read_ram_usage() -> Option<(u64, f64, f64)> {
@@ -380,86 +586,52 @@ fn read_ram_usage() -> Option<(u64, f64, f64)> {
     Some((percent, used_gb, total_gb))
 }
 
-// ── Fan speeds ──
+// ── Disk usage ──
 
-fn read_fan_speeds(hwmon_map: &HashMap<String, String>) -> Vec<MonitorEntry> {
-    let mut entries = Vec::new();
-
-    // ASUS WMI fan sensors
-    for name in ["asus-nb-wmi", "asus_wmi_sensors", "asus-ec-sensors"] {
-        if let Some(path) = hwmon_map.get(name) {
-            for i in 1..=8 {
-                let input = format!("fan{i}_input");
-                let label_file = format!("fan{i}_label");
-                let full_path = format!("{path}/{input}");
-                if let Ok(content) = fs::read_to_string(&full_path) {
-                    if let Ok(rpm) = content.trim().parse::<u64>() {
-                        let label = fs::read_to_string(format!("{path}/{label_file}"))
-                            .map(|s| s.trim().to_string())
-                            .unwrap_or_else(|_| format!("Fan {i}"));
-                        entries.push(MonitorEntry {
-                            label: label.into(),
-                            value: format!("{rpm} RPM").into(),
-                            bar_percent: (rpm as f32 / 6000.0).min(1.0),
-                            show_bar: false,
-                        });
-                    }
-                }
-            }
-        }
+/// Read root filesystem usage via statvfs64.
+fn read_disk_usage() -> Option<(f64, f64, u64)> {
+    use std::ffi::CString;
+    let path = CString::new("/").ok()?;
+    let mut stat: libc::statvfs64 = unsafe { std::mem::zeroed() };
+    let ret = unsafe { libc::statvfs64(path.as_ptr(), &mut stat) };
+    if ret != 0 {
+        return None;
     }
 
-    // If no ASUS-specific fans found, try generic hwmon fans
-    if entries.is_empty() {
-        for (name, path) in hwmon_map {
-            for i in 1..=4 {
-                let input = format!("fan{i}_input");
-                let full_path = format!("{path}/{input}");
-                if let Ok(content) = fs::read_to_string(&full_path) {
-                    if let Ok(rpm) = content.trim().parse::<u64>() {
-                        entries.push(MonitorEntry {
-                            label: format!("{name} Fan {i}").into(),
-                            value: format!("{rpm} RPM").into(),
-                            bar_percent: (rpm as f32 / 6000.0).min(1.0),
-                            show_bar: false,
-                        });
-                    }
-                }
-            }
-        }
-    }
+    let block_size = stat.f_frsize as u64;
+    let total = stat.f_blocks * block_size;
+    let free = stat.f_bfree * block_size;
+    let used = total - free;
 
-    entries
+    let total_gb = total as f64 / 1024.0 / 1024.0 / 1024.0;
+    let used_gb = used as f64 / 1024.0 / 1024.0 / 1024.0;
+    let percent = if total > 0 { (used * 100) / total } else { 0 };
+
+    Some((used_gb, total_gb, percent))
 }
 
-// ── Voltages (if available) ──
+// ── Hwmon helpers ──
 
-fn read_voltages(hwmon_map: &HashMap<String, String>) -> Vec<MonitorEntry> {
-    let mut entries = Vec::new();
-
-    for name in ["asus-ec-sensors", "asus_wmi_sensors", "asus-isa-sensors"] {
-        if let Some(path) = hwmon_map.get(name) {
-            for i in 0..=8 {
-                let input = format!("in{i}_input");
-                let label_file = format!("in{i}_label");
-                let full_path = format!("{path}/{input}");
-                if let Ok(content) = fs::read_to_string(&full_path) {
-                    if let Ok(mv) = content.trim().parse::<u64>() {
-                        let label = fs::read_to_string(format!("{path}/{label_file}"))
-                            .map(|s| s.trim().to_string())
-                            .unwrap_or_else(|_| format!("Voltage {i}"));
-                        let volts = mv as f64 / 1000.0;
-                        entries.push(MonitorEntry {
-                            label: label.into(),
-                            value: format!("{volts:.3} V").into(),
-                            bar_percent: 0.0,
-                            show_bar: false,
-                        });
-                    }
-                }
+fn discover_hwmon_devices() -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    let hwmon_dir = "/sys/class/hwmon";
+    if let Ok(entries) = fs::read_dir(hwmon_dir) {
+        for entry in entries.flatten() {
+            let name_path = entry.path().join("name");
+            if let Ok(name) = fs::read_to_string(&name_path) {
+                let name = name.trim().to_string();
+                let path = entry.path().to_string_lossy().to_string();
+                map.insert(name, path);
             }
         }
     }
+    map
+}
 
-    entries
+fn read_hwmon_temp(hwmon_path: &str, file: &str) -> Option<u64> {
+    let path = format!("{hwmon_path}/{file}");
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .map(|millideg| millideg / 1000)
 }
